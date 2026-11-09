@@ -422,7 +422,7 @@ someone because a background poll hit a flaky network is noise.
 - `manual` → opens the releases page because there is no in-place install.
 - `external` → does nothing because the package manager owns the entire update
   lifecycle and no in-app action is presented for this capability.
-- otherwise → `autoUpdater.quitAndInstall()`, then a **4-second watchdog**. If the
+- otherwise → `installUpdateNow(autoUpdater)` (`quitAndInstall(true, true)`: silent install, no installer window, the app reopens on the new version), then a **4-second watchdog**. If the
   app is still alive and still `ready` after it, the status flips to `failed`.
   A successful install takes the app down before the timer fires. This is defence
   in depth against the silent no-op recurring on a platform we did not anticipate.

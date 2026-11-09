@@ -1102,7 +1102,7 @@ function registerIpcHandlers(): void {
 
     try {
       const { autoUpdater } = require('electron-updater');
-      autoUpdater.quitAndInstall();
+      installUpdateNow(autoUpdater);
     } catch {
       store.setStatus({
         phase: 'failed',
@@ -1507,6 +1507,22 @@ function registerIpcHandlers(): void {
  */
 const INSTALL_WATCHDOG_MS = 4_000;
 
+/** The slice of electron-updater's API that installs a downloaded update. */
+type UpdateInstaller = { quitAndInstall: (isSilent?: boolean, isForceRunAfter?: boolean) => void };
+
+/**
+ * Installs the downloaded update and reopens the app, with no installer window.
+ *
+ * A bare `quitAndInstall()` runs the Windows installer visibly (its progress
+ * window and, on some machines, a UAC-style flash) and leaves the app closed
+ * afterwards. Silent install plus force-run-after makes "Restart" look like the
+ * app simply restarting on the new version. macOS and Linux ignore both flags
+ * where they do not apply, so one call serves every platform.
+ */
+function installUpdateNow(updater: UpdateInstaller): void {
+  updater.quitAndInstall(true, true);
+}
+
 let updateStore: UpdateStatusStore | null = null;
 
 /**
@@ -1539,7 +1555,7 @@ function getUpdateStore(): UpdateStatusStore {
  */
 function notifyAboutUpdate(
   snapshot: UpdateSnapshot,
-  updater: { quitAndInstall: () => void },
+  updater: UpdateInstaller,
 ): void {
   if (!shouldPromptForUpdate(snapshot)) return;
   // A focused user can see the in-app toast. Notifying as well is noise.
@@ -1552,7 +1568,7 @@ function notifyAboutUpdate(
     showNotification(
       'Backspace update ready',
       `Click to restart and install version ${version}.`,
-      () => updater.quitAndInstall(),
+      () => installUpdateNow(updater),
     );
     return;
   }
