@@ -17,10 +17,17 @@ import { queueOutboxEvent, isFederationRelayEnabled, appendMutationLog } from '.
 import { generateSnowflake } from '../utils/snowflake.js';
 import { federationFetch } from '../utils/federationFetch.js';
 import { resizeProfileImage } from '../utils/thumbnail.js';
+import { cropAnimatedGif, isBannerCrop, type CropBounds } from '../utils/cropAnimatedBanner.js';
 import { config } from '../config.js';
 import { buildFederationHeaders, getOurOrigin, normalizeOriginForCompare, canonicalizeHomeInstance } from '../utils/federationAuth.js';
 import { extractDomain } from './federation.js';
 import path from 'path';
+
+/** The size a cropped animated profile image is kept at; the same limits `resizeProfileImage` applies. */
+const PROFILE_CROP_BOUNDS: Record<'avatar' | 'banner', CropBounds> = {
+  avatar: { width: 256, height: 256 },
+  banner: { width: 1280, height: 720 },
+};
 
 /**
  * Canonicalize a caller-supplied remote instance origin to the single storage
@@ -218,7 +225,9 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch<{ Body: UpdateUserRequest }>('/api/users/@me', { preHandler: authenticate }, async (request, reply) => {
-    const { displayName, avatar, banner, accentColor, avatarColor, bio, customStatus, status, replicatedInstances, homeUserId, profileUpdatedAt, discoverable, showActivity } = request.body;
+    const { displayName, avatarCrop, bannerCrop, accentColor, avatarColor, bio, customStatus, status, replicatedInstances, homeUserId, profileUpdatedAt, discoverable, showActivity } = request.body;
+    // Either may be replaced below by the cropped copy of an animated upload.
+    let { avatar, banner } = request.body;
     const db = getDb();
 
     const updateData: Record<string, string | null | undefined> = {};
@@ -253,6 +262,33 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       } else {
         updateData.displayName = null;
       }
+    }
+
+    // An animated GIF is cropped here, frame by frame, because the browser's
+    // canvas would keep one frame. The upload stays as the source until the
+    // cropped copy is the profile image, then it is deleted (see below).
+    const croppedSources: string[] = [];
+    for (const [kind, crop, uploaded] of [['avatar', avatarCrop, avatar], ['banner', bannerCrop, banner]] as const) {
+      if (crop === undefined) continue;
+      if (!isBannerCrop(crop) || typeof uploaded !== 'string') return sendError(reply, 400, 'validation_failed');
+      const source = uploaded.replace(/^\/api\/uploads\//, '');
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.gif$/i.test(source)) return sendError(reply, 400, 'validation_failed');
+      const upload = db.select().from(schema.attachments)
+        .where(and(eq(schema.attachments.filename, source), eq(schema.attachments.uploaderId, request.userId))).get();
+      if (!upload || upload.messageId || upload.dmMessageId) return sendError(reply, 403, 'forbidden');
+      const croppedFilename = `${generateSnowflake()}.gif`;
+      try {
+        await cropAnimatedGif(
+          path.join(config.uploadDir, source),
+          path.join(config.uploadDir, croppedFilename),
+          crop,
+          PROFILE_CROP_BOUNDS[kind],
+        );
+      } catch {
+        return sendError(reply, 400, 'validation_failed');
+      }
+      croppedSources.push(source);
+      if (kind === 'avatar') avatar = croppedFilename; else banner = croppedFilename;
     }
 
     // Track old files for cleanup after update
@@ -500,6 +536,12 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           } catch (e) { console.warn('[users] queuePresenceRelay(showActivity-clear) failed', e); }
         });
       }
+    }
+
+    // The uploads the cropped copies were made from are no longer referenced.
+    for (const source of croppedSources) {
+      deleteUploadFile(source);
+      deleteAttachmentByFilename(source);
     }
 
     // Clean up old avatar/banner files that were replaced

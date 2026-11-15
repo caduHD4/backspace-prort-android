@@ -3,6 +3,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { getDb, schema } from '../db/index.js';
 import { authenticate } from '../utils/auth.js';
 import { generateSnowflake } from '../utils/snowflake.js';
+import { readSpoilerSelection } from '../utils/attachmentSpoilers.js';
 import { hasPermission, getChannelSpaceId, PermissionBits } from '../utils/permissions.js';
 import { connectionManager } from '../ws/handler.js';
 import {
@@ -144,6 +145,7 @@ export function fetchReplyToMessages(
         height: a.height ?? null,
         duration: a.duration ?? null,
         playable: a.playable ?? null,
+        spoiler: a.spoiler ?? false,
         createdAt: a.createdAt,
       })),
       embeds: [],
@@ -220,6 +222,7 @@ export function buildMessageWithUser(
       height: a.height ?? null,
       duration: a.duration ?? null,
       playable: a.playable ?? null,
+      spoiler: a.spoiler ?? false,
       federationStatus: a.federationStatus ?? null,
       federationMeta: a.federationMeta ?? null,
       createdAt: a.createdAt,
@@ -318,7 +321,7 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
     preHandler: authenticate,
   }, async (request, reply) => {
     const { id } = request.params;
-    const { content, attachments: attachmentIds, replyToId } = request.body;
+    const { content, attachments: attachmentIds, spoilerAttachments, replyToId } = request.body;
     if (!consumeChannelMessageCreate(request.userId)) {
       return sendError(reply, 429, 'rate_limited');
     }
@@ -364,6 +367,7 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
     const now = Date.now();
 
     // Verify attachment ownership before linking
+    const sentAttachments: Array<{ id: string; mimetype: string }> = [];
     if (attachmentIds && attachmentIds.length > 0) {
       for (const attId of attachmentIds) {
         const att = db.select().from(schema.attachments).where(eq(schema.attachments.id, attId)).get();
@@ -374,7 +378,12 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
         if (att.uploaderId && att.uploaderId !== request.userId) {
           return sendError(reply, 400, 'attachment_not_owned');
         }
+        sentAttachments.push({ id: att.id, mimetype: att.mimetype });
       }
+    }
+    const spoilerIds = readSpoilerSelection(spoilerAttachments, sentAttachments);
+    if (!spoilerIds) {
+      return sendError(reply, 400, 'validation_failed');
     }
 
     // Insert message and link attachments atomically
@@ -391,7 +400,7 @@ export async function messageRoutes(app: FastifyInstance): Promise<void> {
       if (attachmentIds && attachmentIds.length > 0) {
         for (const attId of attachmentIds) {
           tx.update(schema.attachments)
-            .set({ messageId })
+            .set({ messageId, spoiler: spoilerIds.includes(attId) })
             .where(eq(schema.attachments.id, attId))
             .run();
         }

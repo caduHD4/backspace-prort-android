@@ -231,6 +231,7 @@ export async function processCreateEvent(
           height: attachment.height ?? null,
           duration: attachment.duration ?? null,
           playable: attachment.playable ?? null,
+          spoiler: attachment.spoiler === true,
           thumbnailFilename: null,  // Don't copy source thumbnail — it doesn't exist locally
           sourceUrl: attachment.sourceUrl,
           createdAt: now,
@@ -578,6 +579,7 @@ export function processUpdateEvent(
       height: a.height,
       duration: a.duration,
       playable: a.playable ?? null,
+      spoiler: a.spoiler ?? false,
       createdAt: a.createdAt,
     }));
 

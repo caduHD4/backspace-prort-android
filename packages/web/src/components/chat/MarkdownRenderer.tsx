@@ -8,6 +8,7 @@ import { MentionBadge } from './MentionBadge';
 import { remarkEmojiShortcodes } from '../../utils/remarkEmojiShortcodes';
 import { useEmojiShortcodeNames } from '../../utils/emojiShortcodes';
 import { splitMentions } from '../../utils/mentionTokens';
+import { normalizeWhatsappEmphasis } from '../../utils/messageFormatting';
 import { isLightTheme, useThemeStore } from '../../stores/themeStore';
 
 // ─── Remark Plugin: Tag Bare Fenced Blocks ─────────────────────────────────
@@ -288,7 +289,7 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({ content, 
   return (
     <MentionChannelContext.Provider value={channelId}>
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS} urlTransform={urlTransform}>
-        {preprocessMentions(content)}
+        {preprocessMentions(normalizeWhatsappEmphasis(content))}
       </ReactMarkdown>
     </MentionChannelContext.Provider>
   );

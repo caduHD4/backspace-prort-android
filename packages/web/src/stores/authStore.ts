@@ -2,7 +2,7 @@ import { useChannelPokeStore } from './channelPokeStore';
 import { useUnreadCountStore } from './unreadCountStore';
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { isChosenUserStatus, type ChosenUserStatus, type FederatedIdentity, type User } from '@backspace/shared';
+import { isChosenUserStatus, type ChosenUserStatus, type FederatedIdentity, type ImageCropRegion, type User } from '@backspace/shared';
 import { api } from '../api/client';
 import { useChatStore } from './chatStore';
 import { useSpaceStore } from './spaceStore';
@@ -46,7 +46,7 @@ interface AuthState {
   register: (username: string, password: string, displayName?: string, avatarColor?: string) => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
-  updateProfile: (data: { displayName?: string; avatar?: string; banner?: string; accentColor?: string; avatarColor?: string; bio?: string; customStatus?: string; status?: ChosenUserStatus }) => Promise<void>;
+  updateProfile: (data: { displayName?: string; avatar?: string; banner?: string; avatarCrop?: ImageCropRegion; bannerCrop?: ImageCropRegion; accentColor?: string; avatarColor?: string; bio?: string; customStatus?: string; status?: ChosenUserStatus }) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deleteAccount: (password: string, username: string) => Promise<void>;
   setUser: (user: User) => void;

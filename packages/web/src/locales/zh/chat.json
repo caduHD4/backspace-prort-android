@@ -118,6 +118,17 @@
       "video": "正在压缩视频… {{percent}}%",
       "sendOriginal": "发送原件",
       "cancel": "取消"
+    },
+    "format": {
+      "toolbar": "文字格式",
+      "bold": "粗体",
+      "italic": "斜体",
+      "strike": "删除线",
+      "code": "行内代码",
+      "codeBlock": "代码块",
+      "quote": "引用",
+      "bullet": "项目符号列表",
+      "numbered": "编号列表"
     }
   },
   "menu": {
@@ -162,6 +173,12 @@
       "pause": "暂停语音消息",
       "speed": "播放速度 {{speed}}",
       "seek": "语音消息中的位置"
+    },
+    "spoiler": {
+      "label": "剧透",
+      "reveal": "显示剧透内容",
+      "mark": "标记为剧透",
+      "unmark": "取消剧透标记"
     }
   },
   "gif": {

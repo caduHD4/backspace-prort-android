@@ -87,6 +87,7 @@ function getMessageWithUser(messageId: string): MessageWithUser | null {
     height: a.height ?? null,
     duration: a.duration ?? null,
     playable: a.playable ?? null,
+    spoiler: a.spoiler ?? false,
     createdAt: a.createdAt,
   }));
 
@@ -861,13 +862,14 @@ function handleDmMessageCreate(event: Record<string, unknown>, userId: string, w
   const check = checkDmMessageCreate(dmChannelId, userId, {
     content: event.content,
     attachments: event.attachments,
+    spoilerAttachments: event.spoilerAttachments,
     replyToId: event.replyToId,
   });
   if (!check.ok) {
     refuseDmMessage(ws, check.refusal.code, check.refusal.details);
     return;
   }
-  const { content, attachmentIds, replyToId } = check.value;
+  const { content, attachmentIds, spoilerIds, replyToId } = check.value;
 
   const db = getDb();
   const messageId = generateSnowflake();
@@ -887,7 +889,7 @@ function handleDmMessageCreate(event: Record<string, unknown>, userId: string, w
 
     for (const attId of attachmentIds) {
       tx.update(schema.attachments)
-        .set({ dmMessageId: messageId })
+        .set({ dmMessageId: messageId, spoiler: spoilerIds.includes(attId) })
         .where(eq(schema.attachments.id, attId))
         .run();
     }

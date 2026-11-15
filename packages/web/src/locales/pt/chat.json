@@ -124,6 +124,17 @@
       "video": "Comprimindo vídeo… {{percent}}%",
       "sendOriginal": "Enviar original",
       "cancel": "Cancelar"
+    },
+    "format": {
+      "toolbar": "Formatação de texto",
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "strike": "Tachado",
+      "code": "Código inline",
+      "codeBlock": "Bloco de código",
+      "quote": "Citação",
+      "bullet": "Lista com marcadores",
+      "numbered": "Lista numerada"
     }
   },
   "menu": {
@@ -168,6 +179,12 @@
       "pause": "Pausar mensagem de voz",
       "speed": "Velocidade de reprodução {{speed}}",
       "seek": "Posição na mensagem de voz"
+    },
+    "spoiler": {
+      "label": "Spoiler",
+      "reveal": "Mostrar spoiler",
+      "mark": "Marcar como spoiler",
+      "unmark": "Remover marca de spoiler"
     }
   },
   "gif": {

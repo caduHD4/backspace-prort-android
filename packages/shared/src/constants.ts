@@ -176,3 +176,14 @@ export function normalizeOwnerTitle(value: unknown): string | null | undefined {
   if (trimmed.length === 0 || trimmed.length > MAX_OWNER_TITLE_LENGTH) return undefined;
   return isVisibleSingleLine(trimmed) ? trimmed : undefined;
 }
+
+/**
+ * Whether a file of this MIME type can be sent as a spoiler. Only images and
+ * videos can: clients draw them blurred until the viewer clicks, which has no
+ * meaning for a document or a recording. The server enforces it on send
+ * (`utils/attachmentSpoilers.ts`) and the composer offers the choice only for
+ * these types.
+ */
+export function canBeSpoiler(mimetype: string): boolean {
+  return mimetype.startsWith('image/') || mimetype.startsWith('video/');
+}

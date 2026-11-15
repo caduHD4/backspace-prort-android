@@ -329,25 +329,35 @@
     user-select: none;
   }
 
-  /* Thin scrollbar */
+  /* Scrollbar. It must stay visible on every theme and wide enough to grab:
+     someone without a mouse wheel scrolls by dragging it. The thumb is a wash
+     of the theme's own ink (light on dark themes, dark on light ones), never a
+     surface colour: surface tokens are darker than the panels on the dark
+     themes, which made the thumb vanish. */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background-color: rgb(var(--wash) / 0.04);
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: rgb(var(--bg-input));
+    background-color: rgb(var(--wash) / 0.28);
     border-radius: 9999px;
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: padding-box;
+    min-height: 40px;
+    min-width: 40px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(var(--bg-channel));
+    background-color: rgb(var(--wash) / 0.45);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background-color: rgb(var(--wash) / 0.55);
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -593,7 +603,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
+    width: 8px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
@@ -601,8 +611,13 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgb(var(--wash) / 0.15);
+    background-color: rgb(var(--wash) / 0.28);
     border-radius: 100px;
+    border: 0;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--wash) / 0.45);
   }
 }
 

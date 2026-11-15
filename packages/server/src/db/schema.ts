@@ -159,6 +159,9 @@ export const attachments = sqliteTable('attachments', {
   // browser <video>, 0 = known-undecodable (e.g. HEVC .mov), NULL = unknown
   // (codec unprobed / non-video). Drives the client's download fallback.
   playable: integer('playable', { mode: 'boolean' }),
+  // Sender's choice at send time, images and videos only: clients draw the
+  // file blurred until the viewer clicks it (docs/systems/uploads.md).
+  spoiler: integer('spoiler', { mode: 'boolean' }).notNull().default(false),
   sourceUrl: text('source_url'),
   federationStatus: text('federation_status'),
   federationMeta: text('federation_meta'),
@@ -914,6 +917,7 @@ export const bookmarkAttachments = sqliteTable('bookmark_attachments', {
   height: integer('height'),
   duration: real('duration'),
   playable: integer('playable', { mode: 'boolean' }),
+  spoiler: integer('spoiler', { mode: 'boolean' }).notNull().default(false),
   sourceFilename: text('source_filename').notNull(),
   sourceThumbnailFilename: text('source_thumbnail_filename'),
   filename: text('filename'),

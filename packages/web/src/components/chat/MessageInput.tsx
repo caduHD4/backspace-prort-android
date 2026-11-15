@@ -2,6 +2,8 @@ import { Tooltip } from '../ui/Tooltip';
 import { useMentionComposer } from './useMentionComposer';
 import { useComposerMention } from './useComposerMention';
 import { MentionTextarea } from './MentionTextarea';
+import { FormatToolbar } from './FormatToolbar';
+import { useComposerFormatting } from './useComposerFormatting';
 import { layoutRect } from '../../platform/interfaceScale';
 import React, { useState, useRef, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -142,6 +144,8 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
   const draftText = composerState.draftText;
   const { mentionState, setMentionState, mentionMatches, mentionModel, modelFor,
     selectMention, handleMentionKey, updateMention } = useMentionComposer({ channelId, draftText, textareaRef });
+
+  const formatting = useComposerFormatting({ channelId, textareaRef, draftText, mentionModel, modelFor, setDraft });
 
   const remaining = MAX_MESSAGE_LENGTH - draftText.length;
   const isOverLimit = remaining < 0;
@@ -500,6 +504,7 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
     // IME confirmation must not select a candidate or send the message.
     if (e.nativeEvent.isComposing) return;
     if (handleMentionKey(e)) return;
+    if (formatting.handleFormatKey(e)) return;
 
     const isPlainArrowUp = e.key === 'ArrowUp'
       && !e.altKey
@@ -935,6 +940,10 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
       <div
         className={`relative ${chatReplyTo ? 'rounded-b-lg' : ''} overflow-visible`}
       >
+        {formatting.selection && !recordingVoice && (
+          <FormatToolbar active={formatting.active} onApply={formatting.apply} />
+        )}
+
         {/* Mention autocomplete popover */}
         {mentionState && mentionMatches.length > 0 && (
           <MentionPopover

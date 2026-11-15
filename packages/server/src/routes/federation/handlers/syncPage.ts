@@ -490,6 +490,7 @@ function serializeMessageRow(row: MutationLogRow, type: 'create' | 'update'): Fe
       height: a.height ?? undefined,
       duration: a.duration ?? undefined,
       playable: a.playable ?? null,
+      spoiler: a.spoiler ?? false,
       thumbnailFilename: a.thumbnailFilename ?? undefined,
       sourceUrl: `${localOrigin}/api/uploads/${a.filename}`,
     }));

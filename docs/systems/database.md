@@ -129,6 +129,7 @@ Indexes: `idx_messages_channel_id` (channelId); `idx_messages_user_id` (userId);
 | height | integer | | Image/video pixel height |
 | duration | real | | Audio/video seconds |
 | playable | integer (boolean) | NULL | Video web-playability tri-state: 1 = browser-decodable, 0 = known-undecodable (e.g. HEVC .mov), NULL = unknown/non-video. See uploads.md §3. |
+| spoiler | integer (boolean) | 0 | The sender marked the file as a spoiler at send time (images and videos only, enforced by `utils/attachmentSpoilers.ts`). Clients draw it blurred until the viewer clicks. Set when the message links the attachment; an upload is never a spoiler on its own. See uploads.md §9. |
 | sourceUrl | text | | Remote URL (federation) |
 | federationStatus | text | | local/remote/remote_partial |
 | federationMeta | text | | JSON rejection info |
@@ -175,7 +176,7 @@ Migration `0034_message_bookmarks` adds only these two tables. Full description:
 | bookmark_attachments | id | text PK NOT NULL | Snowflake |
 | bookmark_attachments | bookmark_id | text NOT NULL | FK → message_bookmarks.id, ON DELETE CASCADE |
 | bookmark_attachments | position | integer NOT NULL | Order on the message |
-| bookmark_attachments | original_name, mimetype, size, width, height, duration, playable | | Metadata copied from `attachments` |
+| bookmark_attachments | original_name, mimetype, size, width, height, duration, playable, spoiler | | Metadata copied from `attachments` (`spoiler` is the sender's mark, integer boolean DEFAULT 0) |
 | bookmark_attachments | source_filename | text NOT NULL | The original's file; belongs to the original message and may no longer exist |
 | bookmark_attachments | source_thumbnail_filename | text | The original's thumbnail |
 | bookmark_attachments | filename, thumbnail_filename | text | The bookmark's own copy; NULL while `copy_status` is `reference` |

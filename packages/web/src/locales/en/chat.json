@@ -121,6 +121,17 @@
       "video": "Compressing video… {{percent}}%",
       "sendOriginal": "Send original",
       "cancel": "Cancel"
+    },
+    "format": {
+      "toolbar": "Text formatting",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strike": "Strikethrough",
+      "code": "Inline code",
+      "codeBlock": "Code block",
+      "quote": "Quote",
+      "bullet": "Bulleted list",
+      "numbered": "Numbered list"
     }
   },
   "menu": {
@@ -165,6 +176,12 @@
       "pause": "Pause voice message",
       "speed": "Playback speed {{speed}}",
       "seek": "Position in the voice message"
+    },
+    "spoiler": {
+      "label": "Spoiler",
+      "reveal": "Reveal spoiler",
+      "mark": "Mark as spoiler",
+      "unmark": "Remove spoiler mark"
     }
   },
   "gif": {

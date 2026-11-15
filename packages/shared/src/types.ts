@@ -530,6 +530,8 @@ export interface Attachment {
    * optimistic unknown case, also covered by the client's onError fallback).
    */
   playable?: boolean | null;
+  /** The sender marked the file as a spoiler (images and videos only); clients blur it until the viewer clicks it. */
+  spoiler?: boolean;
   federationStatus?: string | null;
   federationMeta?: string | null;
   createdAt: number;
@@ -721,7 +723,7 @@ export type ClientEvent =
   | { type: 'presence_update'; status: ChosenUserStatus }
   | { type: 'voice_join'; channelId: string }
   | { type: 'voice_leave' }
-  | { type: 'dm_message_create'; dmChannelId: string; content?: string; attachments?: string[]; replyToId?: string }
+  | { type: 'dm_message_create'; dmChannelId: string; content?: string; attachments?: string[]; spoilerAttachments?: string[]; replyToId?: string }
   | { type: 'dm_typing_start'; dmChannelId: string }
   | { type: 'dm_message_edit'; messageId: string; content: string }
   | { type: 'dm_message_delete'; messageId: string }
@@ -929,10 +931,25 @@ export interface UpdateSpaceRequest {
   description?: string;
 }
 
+/** A region of an image, in the pixels of the image itself. */
+export interface ImageCropRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface UpdateUserRequest {
   displayName?: string;
   avatar?: string;
   banner?: string;
+  /**
+   * With `avatar` naming an uploaded GIF: the region to keep. The server crops
+   * every frame, stores the result as the avatar and drops the upload.
+   */
+  avatarCrop?: ImageCropRegion;
+  /** As `avatarCrop`, for `banner`. */
+  bannerCrop?: ImageCropRegion;
   accentColor?: string;
   avatarColor?: string;
   bio?: string;
@@ -954,6 +971,8 @@ export interface UpdateMemberRequest {
 export interface CreateMessageRequest {
   content: string;
   attachments?: string[];
+  /** Ids from `attachments` to mark as spoilers; images and videos only. */
+  spoilerAttachments?: string[];
   replyToId?: string;
 }
 
@@ -1017,6 +1036,8 @@ export interface CreateGroupDmRequest {
 export interface CreateDmMessageRequest {
   content?: string;
   attachments?: string[];
+  /** Ids from `attachments` to mark as spoilers; images and videos only. */
+  spoilerAttachments?: string[];
   replyToId?: string;
 }
 
@@ -1791,6 +1812,8 @@ export interface FederationRelayAttachment {
   // Web-playability computed by the origin instance (see Attachment.playable).
   // Propagated so the receiving instance need not re-probe the codec.
   playable?: boolean | null;
+  // Spoiler mark set by the sender; absent from older instances, read as false.
+  spoiler?: boolean;
   thumbnailFilename?: string;
   sourceUrl: string;
 }
