@@ -16,6 +16,6 @@ if($visualStudio -and -not ($Architecture -eq 'x64' -and (Get-Command g++ -Error
   if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
   Copy-Item -LiteralPath (Join-Path $build 'Release/backspace-shared-texture.exe') -Destination $output -Force
 }elseif($Architecture -eq 'x64' -and (Get-Command g++ -ErrorAction SilentlyContinue)){
-  g++ -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -DWIN32_LEAN_AND_MEAN -DNOMINMAX (Join-Path $root 'main.cpp') -o (Join-Path $output 'backspace-shared-texture.exe') -ld3d11 -ldxgi -lgdi32 -luser32
+  g++ -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -DWIN32_LEAN_AND_MEAN -DNOMINMAX (Join-Path $root 'main.cpp') -o (Join-Path $output 'backspace-shared-texture.exe') -ld3d11 -ldxgi -lgdi32 -luser32 -lavrt
   if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 }else{throw 'Install Visual Studio C++ tools (or MinGW g++ for x64).'}

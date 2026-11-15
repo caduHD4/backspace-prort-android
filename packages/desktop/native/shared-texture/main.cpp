@@ -2,6 +2,7 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
+#include <avrt.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -100,6 +101,44 @@ struct Slot {
   }
 };
 
+
+// Pacing and polling need sub-millisecond sleeps. A high-resolution waitable
+// timer (Windows 10 1803+) gives ~0.5 ms accuracy without raising the global
+// timer rate; older systems fall back to sleep_until at the default ~15 ms.
+class FrameTimer {
+  HANDLE timer = nullptr;
+public:
+  FrameTimer() {
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+    timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+  }
+  ~FrameTimer() { if (timer) CloseHandle(timer); }
+  bool highResolution() const { return timer != nullptr; }
+  void sleepUntil(Clock::time_point when) {
+    const auto remaining = when - Clock::now();
+    if (remaining <= std::chrono::microseconds(0)) return;
+    if (!timer) { std::this_thread::sleep_until(when); return; }
+    LARGE_INTEGER due;
+    due.QuadPart = -std::chrono::duration_cast<std::chrono::nanoseconds>(remaining).count() / 100;
+    if (due.QuadPart == 0) due.QuadPart = -1;
+    if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) WaitForSingleObject(timer, INFINITE);
+    else std::this_thread::sleep_until(when);
+  }
+};
+
+// Windows 11 puts background processes without a window on the efficiency
+// cores (EcoQoS), which stretches every wait and makes the capture stutter.
+// Opt this helper out of power throttling.
+static void optOutOfPowerThrottling() {
+  using SetInfoFn = BOOL (WINAPI*)(HANDLE, int, LPVOID, DWORD);
+  auto setInfo = reinterpret_cast<SetInfoFn>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetProcessInformation"));
+  if (!setInfo) return;
+  struct { ULONG Version; ULONG ControlMask; ULONG StateMask; } state{1, 0x1 /* EXECUTION_SPEED */, 0};
+  setInfo(GetCurrentProcess(), 4 /* ProcessPowerThrottling */, &state, sizeof(state));
+}
+
 struct ProcessHandle {
   HANDLE value;
   ~ProcessHandle() { if (value) CloseHandle(value); }
@@ -113,6 +152,11 @@ int main(int argc, char** argv) {
   const unsigned int monitor = std::strtoul(argv[2], nullptr, 10);
   std::atomic<int> fps{std::clamp(std::atoi(argv[3]), 1, 120)};
   SetProcessDPIAware();
+  optOutOfPowerThrottling();
+  FrameTimer frameTimer;
+  DWORD mmcssTask = 0;
+  HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Capture", &mmcssTask);
+  std::fprintf(stderr, "INFO high-res-timer=%d mmcss=%d\n", frameTimer.highResolution() ? 1 : 0, mmcss ? 1 : 0);
   ComPtr<ID3D11Device> device; ComPtr<ID3D11DeviceContext> context;
   if (!check(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
       nullptr, 0, D3D11_SDK_VERSION, &device, nullptr, &context), "device")) return 3;
@@ -161,7 +205,7 @@ int main(int argc, char** argv) {
     const auto period = std::chrono::microseconds(1000000 / fps.load());
     next += period;
     if (next + period < Clock::now()) next = Clock::now();
-    std::this_thread::sleep_until(next);
+    frameTimer.sleepUntil(next);
     int index = -1;
     for (int i = 0; i < 3; ++i) { bool free = true; if (slots[i].free.compare_exchange_strong(free, false)) { index = i; break; } }
     if (index < 0) { ++drops; continue; }
@@ -179,7 +223,11 @@ int main(int argc, char** argv) {
     context->CopyResource(slot.texture.Get(), frame.Get());
     context->End(query.Get()); context->Flush();
     const auto deadline = Clock::now() + std::chrono::seconds(2);
-    while ((result = context->GetData(query.Get(), nullptr, 0, 0)) == S_FALSE && !stopped.load() && Clock::now() < deadline) Sleep(1);
+    // The copy normally finishes within a fraction of a millisecond: yield the
+    // core for the first few polls, then back off to short timed sleeps.
+    for (int polls = 0; (result = context->GetData(query.Get(), nullptr, 0, 0)) == S_FALSE && !stopped.load() && Clock::now() < deadline; ++polls) {
+      if (polls < 8) SwitchToThread(); else frameTimer.sleepUntil(Clock::now() + std::chrono::microseconds(500));
+    }
     duplication->ReleaseFrame();
     if (result != S_OK) { check(FAILED(result) ? result : E_FAIL, "gpu-timeout"); break; }
     if (info.LastMouseUpdateTime.QuadPart) pointerVisible = info.PointerPosition.Visible;
@@ -197,5 +245,6 @@ int main(int argc, char** argv) {
   }
   // The controller closes stdin on a fatal result, releasing the reader thread.
   if (commands.joinable()) commands.join();
+  if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
   return 0;
 }
