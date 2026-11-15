@@ -131,7 +131,8 @@
       "codeBlock": "Codeblock",
       "quote": "Zitat",
       "bullet": "Aufzählung",
-      "numbered": "Nummerierte Liste"
+      "numbered": "Nummerierte Liste",
+      "preview": "Vorschau"
     }
   },
   "menu": {

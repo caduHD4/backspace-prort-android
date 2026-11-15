@@ -37,3 +37,12 @@ export function normalizeWhatsappEmphasis(content: string): string {
     .map((segment, index) => (index % 2 === 1 ? segment : segment.replace(SINGLE_ASTERISK, '**$1**')))
     .join('');
 }
+
+/**
+ * Whether `content` carries any formatting a message would draw: a marker pair
+ * (`*bold*`, `_italic_`, `~strike~`, `` `code` ``), a fenced block, or a quote
+ * or list line. The composer shows its preview only for such text.
+ */
+export function hasWhatsappFormatting(content: string): boolean {
+  return /(?<![\p{L}\p{N}\\*_~])([*_~])(?=\S)[^\n]*?(?<=\S)\1(?![\p{L}\p{N}])|`[^`\n]+`|```|^(?:> |[-*] |\d+\. )/mu.test(content);
+}

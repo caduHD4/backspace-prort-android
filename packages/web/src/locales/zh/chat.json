@@ -128,7 +128,8 @@
       "codeBlock": "代码块",
       "quote": "引用",
       "bullet": "项目符号列表",
-      "numbered": "编号列表"
+      "numbered": "编号列表",
+      "preview": "预览"
     }
   },
   "menu": {

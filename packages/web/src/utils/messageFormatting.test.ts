@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeWhatsappEmphasis } from './messageFormatting';
+import { hasWhatsappFormatting, normalizeWhatsappEmphasis } from './messageFormatting';
 
 describe('normalizeWhatsappEmphasis', () => {
   it('turns *text* into bold', () => {
@@ -46,5 +46,19 @@ describe('normalizeWhatsappEmphasis', () => {
   it('handles accented text and punctuation boundaries', () => {
     expect(normalizeWhatsappEmphasis('(*olá*)')).toBe('(**olá**)');
     expect(normalizeWhatsappEmphasis('*ação!*')).toBe('**ação!**');
+  });
+});
+
+describe('hasWhatsappFormatting', () => {
+  it('sees marker pairs, code, quotes and lists', () => {
+    for (const text of ['_teste_', 'diga *oi* já', '~riscado~', '`x`', '```\ncodigo\n```', '> citação', '- item', '1. item', '**negrito**']) {
+      expect(hasWhatsappFormatting(text), text).toBe(true);
+    }
+  });
+
+  it('ignores plain text, unpaired markers and words with underscores', () => {
+    for (const text of ['oi', 'só um * aqui', '_teste', 'snake_case_name', '2 * 3 * 4', 'a -b', '']) {
+      expect(hasWhatsappFormatting(text), text).toBe(false);
+    }
   });
 });

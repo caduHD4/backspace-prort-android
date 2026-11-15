@@ -134,7 +134,8 @@
       "codeBlock": "Bloco de código",
       "quote": "Citação",
       "bullet": "Lista com marcadores",
-      "numbered": "Lista numerada"
+      "numbered": "Lista numerada",
+      "preview": "Prévia"
     }
   },
   "menu": {

@@ -131,7 +131,8 @@
       "codeBlock": "Code block",
       "quote": "Quote",
       "bullet": "Bulleted list",
-      "numbered": "Numbered list"
+      "numbered": "Numbered list",
+      "preview": "Preview"
     }
   },
   "menu": {

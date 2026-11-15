@@ -97,3 +97,19 @@ describe('MessageInput formatting', () => {
     expect(draft()).toBe('> diga oi');
   });
 });
+
+describe('MessageInput formatting preview', () => {
+  it('shows the draft formatted while it has markers, and nothing for plain text', () => {
+    const { container } = render(<MessageInput channelId="chan-1" channelName="general" />);
+    const textbox = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+    fireEvent.change(textbox, { target: { value: 'oi' } });
+    expect(screen.queryByText('Preview')).not.toBeInTheDocument();
+
+    fireEvent.change(textbox, { target: { value: '_teste_' } });
+    expect(screen.getByText('Preview')).toBeInTheDocument();
+    expect(container.querySelector('em')?.textContent).toBe('teste');
+    // The field keeps the plain text the user typed.
+    expect(textbox.value).toBe('_teste_');
+  });
+});

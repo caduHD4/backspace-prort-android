@@ -3,6 +3,7 @@ import { useMentionComposer } from './useMentionComposer';
 import { useComposerMention } from './useComposerMention';
 import { MentionTextarea } from './MentionTextarea';
 import { FormatToolbar } from './FormatToolbar';
+import { FormatPreview } from './FormatPreview';
 import { useComposerFormatting } from './useComposerFormatting';
 import { layoutRect } from '../../platform/interfaceScale';
 import React, { useState, useRef, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
@@ -965,6 +966,8 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
           previewUrls={previewUrlsRef.current}
           onRemove={removeStagedTransfer}
         />
+
+        {!recordingVoice && <FormatPreview content={draftText} channelId={channelId} />}
 
         {recordingVoice ? (
           <VoiceRecorderBar
