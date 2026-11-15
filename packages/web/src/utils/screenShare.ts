@@ -231,7 +231,7 @@ export function buildScreenShareOptions(savedConfig: ScreenShareConfig): ScreenS
     capture: { width: captureWidth, height: captureHeight, frameRate: fps },
     publish: {
       videoCodec: config.codec,
-      degradationPreference: mode === 'text' ? 'maintain-resolution' : 'maintain-framerate',
+      degradationPreference: mode === 'text' ? 'maintain-resolution' : 'balanced',
       videoEncoding: { maxBitrate: bps, maxFramerate: fps },
       simulcast: false,
       ...backup,
@@ -243,9 +243,12 @@ export function buildScreenShareOptions(savedConfig: ScreenShareConfig): ScreenS
     overdrive: {
       maxBitrate: bps,
       maxFramerate: fps,
-      degradationPreference: mode === 'text' ? 'maintain-resolution' : 'maintain-framerate',
+      degradationPreference: mode === 'text' ? 'maintain-resolution' : 'balanced',
     },
-    contentHint: mode === 'text' ? 'detail' : 'motion',
+    // Both modes ask for sharpness. Gaming differs only in how it degrades
+    // under pressure: 'balanced' trades resolution and frame rate together
+    // instead of dropping frames first.
+    contentHint: 'detail',
   };
 }
 

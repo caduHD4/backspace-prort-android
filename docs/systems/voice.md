@@ -397,7 +397,7 @@ ScreenShareConfig {
 2. Clamp to instance limits (minBitrateKbps, maxBitrateKbps)
 3. Select the persisted codec: VP9 (default) or H.264
 4. For a VP9 share, configure a VP8 simulcast backup at reduced framerate/bitrate; room dynacast pauses it when no subscriber needs it. An H.264 share has no backup: every client decodes H.264, so a second encode would only take uplink and CPU
-5. Content hint: `'detail'` (text) or `'motion'` (gaming)
+5. Content hint: `'detail'` in both modes
 6. Degradation preference: preserve resolution for text, balanced for gaming
 
 ### Uplink priority and stall recovery
