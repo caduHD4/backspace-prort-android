@@ -13,9 +13,13 @@ const MOD = isMac ? '⌘' : 'Ctrl+';
 
 const ICON_PROPS = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const;
 
+// The B, I and S are typographic glyphs that show the style, not words to translate.
 const BUTTONS: ReadonlyArray<{ format: ComposerFormat; icon: ReactNode; shortcut?: string }> = [
+  // i18n-check: allow-literal
   { format: 'bold', shortcut: `${MOD}B`, icon: <span className="font-bold text-ui-body">B</span> },
+  // i18n-check: allow-literal
   { format: 'italic', shortcut: `${MOD}I`, icon: <span className="italic font-serif text-ui-body">I</span> },
+  // i18n-check: allow-literal
   { format: 'strike', shortcut: `${MOD}Shift+X`, icon: <span className="line-through text-ui-body">S</span> },
   { format: 'code', shortcut: `${MOD}E`, icon: <svg {...ICON_PROPS}><path d="M8 7l-5 5 5 5M16 7l5 5-5 5" /></svg> },
   { format: 'codeBlock', icon: <svg {...ICON_PROPS}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 10l-2 2 2 2M15 10l2 2-2 2" /></svg> },

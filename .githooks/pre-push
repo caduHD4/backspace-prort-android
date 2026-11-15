@@ -1,0 +1,26 @@
+#!/bin/sh
+# Runs before every `git push`: the same gates that broke production builds.
+#
+# The server builds the container image from a clean checkout, so a push that
+# only works on a developer machine leaves the deploy failing while the old
+# version keeps running. This hook runs the steps that failed that way:
+#   1. the localization check (scripts/check-i18n.mjs), which the web build runs
+#   2. the production build of shared, server and web (tsc + Vite)
+#   3. lint
+# It takes about a minute. Skip it for a push that changes no code with
+# `git push --no-verify`. Enable it once per clone:  git config core.hooksPath .githooks
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+echo "pre-push: localization check"
+node scripts/check-i18n.mjs
+
+echo "pre-push: build shared, server and web"
+pnpm build
+
+echo "pre-push: lint"
+pnpm lint
+
+echo "pre-push: ok"
