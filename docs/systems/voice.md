@@ -545,6 +545,7 @@ Both control bars close the menu whenever `isScreenSharing` drops to `false`, so
 - **Window share mode** (`windowCapturePolicy.ts`, decided in the `get-window-capture-target` handler): Windows 10 (build < 22000) captures the display and crops it, the only borderless option there. Windows 11 (build >= 22000) shares the window directly through Chromium's window source (Windows Graphics Capture); the handler answers `null` so the renderer takes the plain window path, and audio still comes from the window's process tree. The `BACKSPACE_WINDOW_CAPTURE=native|crop` environment variable forces either path for comparison; the choice is logged as `[ScreenShare] window capture mode=...`.
 - **Share audio helper** (`native/process-audio`): event-driven WASAPI process loopback (`AUDCLNT_STREAMFLAGS_EVENTCALLBACK`, 20 ms buffer), capture thread registered with MMCSS "Audio", one flush per wake-up. The renderer's `processAudio.worklet.js` queue is capped at 125 ms (6000 frames).
 - The main window runs with `backgroundThrottling: false` so a minimized window keeps feeding the share.
+- On Windows the main process also sets `disable-features=CalculateNativeWinOcclusion`, `disable-renderer-backgrounding` and `disable-backgrounding-occluded-windows`: the shared game or window covers Backspace, and an occluded page would stop the crop's frame callbacks and the audio worklet.
 
 ### System Audio Loopback (`shareAudio`)
 

@@ -1747,6 +1747,16 @@ function handleDeepLink(url: string): void {
 }
 
 
+// Sharing a game or window puts that window on top of Backspace. Chromium then
+// treats Backspace as occluded: it hides the page and pauses frame callbacks,
+// which freezes the window-crop share and starves the share audio worklet.
+// Keep the renderer running while it is covered. Must run before app 'ready'.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+}
+
 // Electron 36+ defaults to GTK 4 on GNOME, which crashes if GTK 2/3
 // libraries are loaded in the same process. Force GTK 3 for compatibility.
 if (process.platform === 'linux') {
