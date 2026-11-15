@@ -14,6 +14,7 @@ struct AUDIOCLIENT_ACTIVATION_PARAMS { AUDIOCLIENT_ACTIVATION_TYPE ActivationTyp
 static_assert(sizeof(AUDIOCLIENT_ACTIVATION_PARAMS) == 12, "Windows SDK activation ABI");
 #endif
 #include <mmdeviceapi.h>
+#include <avrt.h>
 #include <dwmapi.h>
 #include <wrl/client.h>
 #include <atomic>
@@ -329,28 +330,50 @@ int wmain(int argc, wchar_t** argv) {
     WAVEFORMATEX format{};
     format.wFormatTag = WAVE_FORMAT_PCM; format.nChannels = 2; format.nSamplesPerSec = 48000;
     format.wBitsPerSample = 16; format.nBlockAlign = 4; format.nAvgBytesPerSec = 192000;
-    hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, 200000, 0, &format, nullptr);
+    // Event-driven: WASAPI signals when a packet is ready, so the pump sleeps in
+    // the kernel instead of polling every few milliseconds. A 20 ms buffer keeps
+    // latency low; the wait timeout below covers a process that goes quiet.
+    HANDLE packetReady = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!packetReady) return fail("CreateEvent.packetReady", HRESULT_FROM_WIN32(GetLastError()), 5);
+    hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, 200000, 0, &format, nullptr);
     if (FAILED(hr)) return fail("IAudioClient.Initialize", hr, 6);
+    hr = client->SetEventHandle(packetReady);
+    if (FAILED(hr)) return fail("IAudioClient.SetEventHandle", hr, 6);
     ComPtr<IAudioCaptureClient> capture;
     hr = client->GetService(IID_PPV_ARGS(&capture));
     if (FAILED(hr)) return fail("GetService", hr, 7);
     hr = client->Start();
     if (FAILED(hr)) return fail("IAudioClient.Start", hr, 7);
     _setmode(_fileno(stdout), _O_BINARY);
-    std::fprintf(stderr, "READY\n"); std::fflush(stderr);
-    while (true) {
+    // Real-time scheduling for the capture thread (MMCSS "Audio", the class
+    // WASAPI clients use) so a busy game cannot starve the pump into glitches.
+    DWORD mmcssTask = 0;
+    HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Audio", &mmcssTask);
+    std::fprintf(stderr, "INFO mmcss=%s event-driven=1\n", mmcss ? "on" : "off");
+    std::fprintf(stderr, "READY\n");std::fflush(stderr);
+    std::vector<BYTE> silence;
+    bool running = true;
+    while (running) {
+        // The timeout only bounds how long a dead stream goes unnoticed; packets
+        // normally arrive every ~10 ms through the event.
+        const DWORD waited = WaitForSingleObject(packetReady, 100);
+        if (waited != WAIT_OBJECT_0 && waited != WAIT_TIMEOUT) break;
         UINT32 next = 0;
-        if (FAILED(capture->GetNextPacketSize(&next))) break;
-        if (!next) { Sleep(5); continue; }
-        BYTE* bytes = nullptr; UINT32 frames = 0; DWORD flags = 0;
-        if (FAILED(capture->GetBuffer(&bytes, &frames, &flags, nullptr, nullptr))) break;
-        const size_t count = static_cast<size_t>(frames) * format.nBlockAlign;
-        std::vector<BYTE> silence;
-        if (flags & AUDCLNT_BUFFERFLAGS_SILENT) { silence.resize(count, 0); bytes = silence.data(); }
-        const bool written = std::fwrite(bytes, 1, count, stdout) == count && std::fflush(stdout) == 0;
-        capture->ReleaseBuffer(frames);
-        if (!written) break;
+        // Drain everything queued: one event can cover several packets.
+        while (SUCCEEDED(capture->GetNextPacketSize(&next)) && next) {
+            BYTE* bytes = nullptr; UINT32 frames = 0; DWORD flags = 0;
+            if (FAILED(capture->GetBuffer(&bytes, &frames, &flags, nullptr, nullptr))) { running = false; break; }
+            const size_t count = static_cast<size_t>(frames) * format.nBlockAlign;
+            if (flags & AUDCLNT_BUFFERFLAGS_SILENT) { silence.assign(count, 0); bytes = silence.data(); }
+            const bool written = std::fwrite(bytes, 1, count, stdout) == count;
+            capture->ReleaseBuffer(frames);
+            if (!written) { running = false; break; }
+        }
+        // One flush per wake-up instead of one per packet.
+        if (running && std::fflush(stdout) != 0) running = false;
     }
+    if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
+    CloseHandle(packetReady);
     client->Stop();
     return 0;
 }

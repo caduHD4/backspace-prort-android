@@ -80,6 +80,7 @@ import {
 } from './instanceUrl';
 import { getUpdateCapability, isSandboxed } from './updateCapability';
 import { ownAudioInSystemAudio } from './systemAudioCapability';
+import { windowCaptureMode } from './windowCapturePolicy';
 import { createSystemAudioController, withSystemAudioSource, type PatchBayModule } from './systemAudio';
 import { loadDismissedVersion, setDismissedVersion } from './updateDismissal';
 import { purgeUpdaterCache } from './updaterCache';
@@ -444,6 +445,10 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // A minimized or covered window keeps its timers and frame callbacks: the
+      // cropped window share and the audio worklet are driven by them, and a
+      // throttled renderer stutters or freezes the stream the viewers watch.
+      backgroundThrottling: false,
     },
   });
 
@@ -1272,6 +1277,11 @@ function registerIpcHandlers(): void {
     if (typeof sourceId !== 'string') return null;
     const match = /^window:(\d+):\d+$/.exec(sourceId);
     if (!match) return null;
+    // Windows 11 shares the window itself; null sends the renderer down the
+    // plain window-source path (see windowCapturePolicy.ts).
+    const mode = windowCaptureMode(process.platform, process.getSystemVersion(), process.env.BACKSPACE_WINDOW_CAPTURE);
+    console.info(`[ScreenShare] window capture mode=${mode} windows=${process.getSystemVersion()}`);
+    if (mode === 'native') return null;
     const geometry = await queryWindowGeometry(match[1]!);
     if (!geometry) return null;
     const [mx, my, mw, mh] = geometry.monitor;

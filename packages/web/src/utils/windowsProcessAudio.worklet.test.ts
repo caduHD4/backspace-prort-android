@@ -18,6 +18,6 @@ describe('process audio worklet', () => {
     expect(left[1]).toBe(0); expect(right[1]).toBe(0);
     const big = new Uint8Array(48000 * 4);
     processor.port.onmessage!({ data: big });
-    expect(processor.count).toBe(24000);
+    expect(processor.count).toBe(6000);
   });
 });

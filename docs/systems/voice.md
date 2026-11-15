@@ -540,6 +540,12 @@ The screen-share button is the **only** control-bar entry to screen sharing and 
 
 Both control bars close the menu whenever `isScreenSharing` drops to `false`, so a share ended elsewhere (the OS "Stop sharing" bar, `handleScreenShareUnpublished`, the keybind) never leaves a stale popover anchored to the button. The popover's click-outside listener ignores `mousedown` on its own anchor; the anchor's click handler is the sole owner of the open/close toggle (`ConnectionInfoPopover` follows the same contract).
 
+### Windows capture pipeline notes
+
+- **Window share mode** (`windowCapturePolicy.ts`, decided in the `get-window-capture-target` handler): Windows 10 (build < 22000) captures the display and crops it, the only borderless option there. Windows 11 (build >= 22000) shares the window directly through Chromium's window source (Windows Graphics Capture); the handler answers `null` so the renderer takes the plain window path, and audio still comes from the window's process tree. The `BACKSPACE_WINDOW_CAPTURE=native|crop` environment variable forces either path for comparison; the choice is logged as `[ScreenShare] window capture mode=...`.
+- **Share audio helper** (`native/process-audio`): event-driven WASAPI process loopback (`AUDCLNT_STREAMFLAGS_EVENTCALLBACK`, 20 ms buffer), capture thread registered with MMCSS "Audio", one flush per wake-up. The renderer's `processAudio.worklet.js` queue is capped at 125 ms (6000 frames).
+- The main window runs with `backgroundThrottling: false` so a minimized window keeps feeding the share.
+
 ### System Audio Loopback (`shareAudio`)
 
 The "System audio" toggle in the quality panel adds an audio track to the screen-share publication. `stageScreenCapture` calls `navigator.mediaDevices.getDisplayMedia` directly (not through LiveKit) with constraints from `buildCaptureConstraints`, which include `restrictOwnAudio: true` when the toggle is on and `audio: false` when it is off. In Electron, the `setDisplayMediaRequestHandler` callback (`packages/desktop/src/main.ts`) returns `audio: 'loopback'` to opt into Chromium's system-audio loopback path.

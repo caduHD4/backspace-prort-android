@@ -1,4 +1,7 @@
 // Bounded stereo PCM queue: a stalled renderer must never grow latency indefinitely.
+// The helper is event-driven and delivers ~10 ms packets, so 125 ms of backlog is
+// already a stall; anything older is dropped to keep the audio in step with the video.
+const MAX_QUEUED_FRAMES = 6000;
 class ProcessAudio extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -8,7 +11,7 @@ class ProcessAudio extends AudioWorkletProcessor {
     this.port.onmessage = ({ data }) => {
       const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
       for (let offset = 0; offset + 3 < data.byteLength; offset += 4) {
-        if (this.count >= 24000) { this.read = (this.read + 1) % 48000; this.count--; }
+        if (this.count >= MAX_QUEUED_FRAMES) { this.read = (this.read + 1) % 48000; this.count--; }
         this.left[this.write] = view.getInt16(offset, true) / 32768;
         this.right[this.write] = view.getInt16(offset + 2, true) / 32768;
         this.write = (this.write + 1) % 48000; this.count++;
