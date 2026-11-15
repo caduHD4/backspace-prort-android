@@ -1,5 +1,5 @@
 {
-"attentionMutes": {
+  "attentionMutes": {
     "title": "Muted people",
     "description": "Mute attention sounds, animations and notices from specific people on this device. Messages and calls remain available.",
     "mute": "Mute attention effects",
@@ -28,6 +28,10 @@
   "theme": {
     "label": "Theme",
     "description": "Choose how Backspace looks. Saved in this browser or app on this device.",
+    "msnFrames": {
+      "label": "Windows XP frames",
+      "description": "Bevelled blue window borders, like Windows XP."
+    },
     "options": {
       "aether-drift": {
         "name": "Aether Drift",
@@ -44,6 +48,14 @@
       "anime": {
         "name": "Anime",
         "description": "Twilight indigo with sakura-pink accents."
+      },
+      "msn": {
+        "name": "MSN",
+        "description": "Bright Live Messenger blue with glossy buttons and Segoe type."
+      },
+      "msn-dark": {
+        "name": "MSN Dark",
+        "description": "Live Messenger blue on deep navy, with glossy buttons."
       }
     }
   },
@@ -75,6 +87,14 @@
       },
       "meter": {
         "hint": "The level meter activates once you join a voice channel."
+      },
+      "sensitivity": {
+        "label": "Input sensitivity",
+        "auto": "Automatically determine input sensitivity",
+        "lower": "Less sensitive",
+        "higher": "More sensitive",
+        "hintAuto": "Backspace follows the noise of the room and sends your voice when you speak above it. Turn this off to set it yourself.",
+        "hintManual": "Your voice is sent when the bars pass the white mark. Drag the slider until the mark sits just above the noise when you are quiet."
       }
     },
     "output": {
@@ -384,6 +404,10 @@
         "dragHandle": "Drag {{name}} to change its priority",
         "manualNameLabel": "Name of {{name}}",
         "save": "Save"
+      },
+      "hideBrowserMedia": {
+        "label": "Hide browser players",
+        "description": "Tabs playing in Chrome, Firefox, Edge and other browsers (a YouTube video, a web player) are not shown as listening or watching."
       }
     }
   },

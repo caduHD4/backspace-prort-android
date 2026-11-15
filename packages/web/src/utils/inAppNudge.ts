@@ -2,6 +2,7 @@ import theme from '../../../desktop/resources/ui-theme.json';
 import i18n from '../i18n';
 import type { NudgeEffect } from '@backspace/shared';
 import type { NudgePlan } from './nudgePolicy';
+import { loadNudgeMedia } from './nudgeMedia';
 
 let activeUntil = 0;
 
@@ -22,7 +23,7 @@ export async function playInAppNudge(sender: string, avatar: string | undefined,
   if (Date.now() < activeUntil) return;
   activeUntil = Date.now() + 10_000;
   const movieEffect = effect === 'knock' || effect.startsWith('msn_');
-  const media = movieEffect ? await window.backspace?.getNudgeMedia?.(effect).catch(() => null) : null;
+  const media = movieEffect ? await loadNudgeMedia(effect) : null;
   const animations: Animation[] = [];
   const layers: HTMLElement[] = [];
   const finishEffect = () => { animations.forEach(a => a.cancel()); layers.forEach(layer => layer.remove()); };
@@ -68,10 +69,14 @@ export async function playInAppNudge(sender: string, avatar: string | undefined,
     video.src = media.video; video.muted = !plan.sound; video.volume = plan.volume; video.playsInline = true;
     Object.assign(video.style, { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', maxWidth: '80%', maxHeight: '80%' });
     host.append(video); duration = media.durationMs;
-    void video.play().catch(() => host.remove());
+    // Browsers refuse unmuted autoplay without a prior gesture; the clip still plays silently.
+    void video.play().catch(() => {
+      video.muted = true;
+      void video.play().catch(() => host.remove());
+    });
     setTimeout(() => { video.pause(); video.removeAttribute('src'); }, duration + 100);
   } else if (movieEffect) {
-    // Older clients and browsers can still display the notice without leaking outside the app.
+    // No clip could be loaded for this movie effect: the notice alone carries the call.
     return;
   } else if (effect === 'confetti') {
     const host = layer();

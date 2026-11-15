@@ -4,6 +4,7 @@ import type { ErrorCode, ErrorDetails } from '@backspace/shared/src/errors';
 import { getDb, schema } from '../db/index.js';
 import { isDeadOneOnOne, isDmMember } from './permissions.js';
 import { dmMessageEditRefusal } from './dmSystemMessages.js';
+import { readSpoilerSelection } from './attachmentSpoilers.js';
 
 /**
  * The rules for creating, editing and deleting a DM message, in one place.
@@ -42,6 +43,8 @@ export interface DmMessageCreateInput {
   /** Trimmed text, or null for an attachment-only message. */
   content: string | null;
   attachmentIds: string[];
+  /** The attachments among `attachmentIds` the sender marked as spoilers. */
+  spoilerIds: string[];
   replyToId: string | null;
 }
 
@@ -49,6 +52,7 @@ export interface DmMessageCreateInput {
 export interface DmMessageCreateFields {
   content?: unknown;
   attachments?: unknown;
+  spoilerAttachments?: unknown;
   replyToId?: unknown;
 }
 
@@ -91,7 +95,7 @@ export function checkDmMessageCreate(
   if (!isDmMember(dmChannelId, userId)) return refuse(403, 'not_dm_member');
   if (isDeadOneOnOne(dmChannelId, userId)) return refuse(403, 'recipient_deleted');
 
-  const { content, attachments, replyToId } = fields;
+  const { content, attachments, spoilerAttachments, replyToId } = fields;
   if (content !== undefined && content !== null && typeof content !== 'string') return refuse(400, 'validation_failed');
   if (attachments !== undefined && attachments !== null && !isStringArray(attachments)) return refuse(400, 'validation_failed');
   if (replyToId !== undefined && replyToId !== null && typeof replyToId !== 'string') return refuse(400, 'validation_failed');
@@ -107,13 +111,17 @@ export function checkDmMessageCreate(
   if (reply && !isDmReplyTargetInChannel(dmChannelId, reply)) return refuse(400, 'reply_target_invalid');
 
   const db = getDb();
+  const sentAttachments: Array<{ id: string; mimetype: string }> = [];
   for (const attId of attachmentIds) {
     const att = db.select().from(schema.attachments).where(eq(schema.attachments.id, attId)).get();
     if (!att || att.messageId || att.dmMessageId) return refuse(400, 'attachment_invalid');
     if (att.uploaderId && att.uploaderId !== userId) return refuse(400, 'attachment_not_owned');
+    sentAttachments.push({ id: att.id, mimetype: att.mimetype });
   }
+  const spoilerIds = readSpoilerSelection(spoilerAttachments, sentAttachments);
+  if (!spoilerIds) return refuse(400, 'validation_failed');
 
-  return { ok: true, value: { content: text.length > 0 ? text : null, attachmentIds, replyToId: reply } };
+  return { ok: true, value: { content: text.length > 0 ? text : null, attachmentIds, spoilerIds, replyToId: reply } };
 }
 
 /**

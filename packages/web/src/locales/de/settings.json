@@ -1,5 +1,5 @@
 {
-"attentionMutes": {
+  "attentionMutes": {
     "title": "Stummgeschaltete Personen",
     "description": "Unterdrücke Anstups-Töne, Animationen und Hinweise bestimmter Personen auf diesem Gerät. Nachrichten und Anrufe bleiben verfügbar.",
     "mute": "Anstupser stummschalten",
@@ -28,6 +28,10 @@
   "theme": {
     "label": "Design",
     "description": "Lege fest, wie Backspace aussieht. Wird in diesem Browser oder dieser App auf diesem Gerät gespeichert.",
+    "msnFrames": {
+      "label": "Windows-XP-Rahmen",
+      "description": "Abgeschrägte blaue Fensterrahmen wie in Windows XP."
+    },
     "options": {
       "aether-drift": {
         "name": "Aether Drift",
@@ -44,6 +48,14 @@
       "anime": {
         "name": "Anime",
         "description": "Dämmerungs-Indigo mit Sakura-rosa Akzenten."
+      },
+      "msn": {
+        "name": "MSN",
+        "description": "Helles Live-Messenger-Blau mit glänzenden Schaltflächen und Segoe-Schrift."
+      },
+      "msn-dark": {
+        "name": "MSN Dunkel",
+        "description": "Live-Messenger-Blau auf tiefem Marineblau, mit glänzenden Schaltflächen."
       }
     }
   },
@@ -75,6 +87,14 @@
       },
       "meter": {
         "hint": "Die Pegelanzeige wird aktiv, sobald du einem Sprachkanal beitrittst."
+      },
+      "sensitivity": {
+        "label": "Eingabeempfindlichkeit",
+        "auto": "Eingabeempfindlichkeit automatisch bestimmen",
+        "lower": "Weniger empfindlich",
+        "higher": "Empfindlicher",
+        "hintAuto": "Backspace folgt dem Geräuschpegel des Raums und sendet deine Stimme, wenn du lauter sprichst. Schalte das aus, um es selbst einzustellen.",
+        "hintManual": "Deine Stimme wird gesendet, wenn die Balken die weiße Markierung überschreiten. Ziehe den Regler, bis die Markierung knapp über dem Rauschen liegt, wenn du still bist."
       }
     },
     "output": {
@@ -384,6 +404,10 @@
         "dragHandle": "{{name}} ziehen, um die Priorität zu ändern",
         "manualNameLabel": "Name von {{name}}",
         "save": "Speichern"
+      },
+      "hideBrowserMedia": {
+        "label": "Browser-Player ausblenden",
+        "description": "Tabs, die in Chrome, Firefox, Edge und anderen Browsern laufen (ein YouTube-Video, ein Web-Player), werden nicht als Hören oder Ansehen angezeigt."
       }
     }
   },

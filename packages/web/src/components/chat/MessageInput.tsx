@@ -2,6 +2,9 @@ import { Tooltip } from '../ui/Tooltip';
 import { useMentionComposer } from './useMentionComposer';
 import { useComposerMention } from './useComposerMention';
 import { MentionTextarea } from './MentionTextarea';
+import { FormatToolbar } from './FormatToolbar';
+import { FormatPreview } from './FormatPreview';
+import { useComposerFormatting } from './useComposerFormatting';
 import { layoutRect } from '../../platform/interfaceScale';
 import React, { useState, useRef, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -13,6 +16,10 @@ import { MentionPopover } from './MentionPopover';
 import { TypingIndicator } from './TypingIndicator';
 import { InputPopover, type InputPopoverTab } from './InputPopover';
 import { StagedTransferTiles } from './StagedTransferTiles';
+import { PreparingFileTiles, type PreparingFile } from './PreparingFileTiles';
+import { AttachMenu } from './AttachMenu';
+import { useMediaUploadPreferences } from '../../stores/mediaUploadPreferences';
+import { compressionKind, prepareForUpload, shouldTryCompression } from '../../utils/mediaCompression';
 import { VoiceRecorderBar } from './VoiceRecorderBar';
 import { useVoiceRecorder, type VoiceRecording } from '../../hooks/useVoiceRecorder';
 import { ChatDropOverlay } from './ChatDropOverlay';
@@ -92,6 +99,15 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
   // (after reload, persisted transfers fall back to the icon placeholder).
   const previewUrlsRef = useRef<Map<string, string>>(new Map());
 
+  // Photos and videos are shrunk on this device before they upload; "Document"
+  // sends the original. `preparing` is the files still being shrunk.
+  const compressMedia = useMediaUploadPreferences((s) => s.compressMedia);
+  const setCompressMedia = useMediaUploadPreferences((s) => s.setCompressMedia);
+  const [preparing, setPreparing] = useState<PreparingFile[]>([]);
+  const preparingControls = useRef<Map<string, { controller: AbortController; action: 'original' | 'cancel' | null }>>(new Map());
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
   const sendMessage = useChatStore((s) => s.sendMessage);
   const returnToPresent = useChatStore((s) => s.returnToPresent);
   // This channel's reply only: reply state is per channel (#390).
@@ -129,6 +145,8 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
   const draftText = composerState.draftText;
   const { mentionState, setMentionState, mentionMatches, mentionModel, modelFor,
     selectMention, handleMentionKey, updateMention } = useMentionComposer({ channelId, draftText, textareaRef });
+
+  const formatting = useComposerFormatting({ channelId, textareaRef, draftText, mentionModel, modelFor, setDraft });
 
   const remaining = MAX_MESSAGE_LENGTH - draftText.length;
   const isOverLimit = remaining < 0;
@@ -225,9 +243,40 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
    */
   const enqueueFile = useCallback(
     async (
-      input: { file: File; handle?: FileSystemFileHandle | undefined },
+      input: { file: File; handle?: FileSystemFileHandle | undefined; mode?: 'compress' | 'original' },
     ): Promise<string | null> => {
-      const { file, handle } = input;
+      let { file, handle } = input;
+      const mode = input.mode ?? (useMediaUploadPreferences.getState().compressMedia ? 'compress' : 'original');
+
+      // Shrink photos and videos first. Anything it cannot improve, and any
+      // failure, comes back as the original file.
+      const kind = mode === 'compress' && shouldTryCompression(file) ? compressionKind(file) : null;
+      if (kind) {
+        const prepId = makeFileHandleKey();
+        const controller = new AbortController();
+        preparingControls.current.set(prepId, { controller, action: null });
+        setPreparing((list) => [...list, { id: prepId, name: file.name, kind, progress: null }]);
+        let action: 'original' | 'cancel' | null = null;
+        try {
+          const prepared = await prepareForUpload(file, 'compress', {
+            signal: controller.signal,
+            onProgress: (fraction) => {
+              setPreparing((list) => list.map((entry) => (entry.id === prepId ? { ...entry, progress: fraction } : entry)));
+            },
+          });
+          action = preparingControls.current.get(prepId)?.action ?? null;
+          if (action === 'cancel') return null;
+          if (action !== 'original' && prepared.compressed) {
+            file = prepared.file;
+            // The handle points at the original bytes; a resume would read those
+            handle = undefined;
+          }
+        } finally {
+          preparingControls.current.delete(prepId);
+          setPreparing((list) => list.filter((entry) => entry.id !== prepId));
+        }
+      }
+
       let fileHandleId: string | undefined;
       if (handle && supportsFsHandles()) {
         try {
@@ -268,6 +317,14 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
     },
     [channelId, startUpload, attachToComposer, addToast, t],
   );
+
+  /** Stop shrinking a file: upload the original (`original`) or drop it (`cancel`). */
+  const settlePreparing = useCallback((id: string, action: 'original' | 'cancel') => {
+    const entry = preparingControls.current.get(id);
+    if (!entry) return;
+    entry.action = action;
+    entry.controller.abort();
+  }, []);
 
   const removeStagedTransfer = useCallback(
     (transferId: string) => {
@@ -448,6 +505,7 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
     // IME confirmation must not select a candidate or send the message.
     if (e.nativeEvent.isComposing) return;
     if (handleMentionKey(e)) return;
+    if (formatting.handleFormatKey(e)) return;
 
     const isPlainArrowUp = e.key === 'ArrowUp'
       && !e.altKey
@@ -537,6 +595,30 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
       void enqueueFile({ file });
     }
   };
+
+  const placeholderText =
+    placeholder ??
+    (channelName.startsWith('@')
+      ? t('chat:composer.placeholder.dm', { name: channelName.slice(1) })
+      : t('chat:composer.placeholder.channel', { name: channelName }));
+
+  // The field fits its content: typing does it in `handleChange`, this covers
+  // everything else. On a phone the placeholder wraps to two lines next to the
+  // four composer buttons, and a field that kept its one-row height cut the
+  // second line off until the first keystroke.
+  const fitTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 300) + 'px';
+  }, []);
+  useLayoutEffect(fitTextarea, [fitTextarea, draftText, placeholderText]);
+  useEffect(() => {
+    // The web font arrives after the first layout and changes where the text wraps; so does a turn of the phone
+    void document.fonts?.ready.then(fitTextarea);
+    window.addEventListener('resize', fitTextarea);
+    return () => window.removeEventListener('resize', fitTextarea);
+  }, [fitTextarea]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     updateMention(e);
@@ -859,6 +941,10 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
       <div
         className={`relative ${chatReplyTo ? 'rounded-b-lg' : ''} overflow-visible`}
       >
+        {formatting.selection && !recordingVoice && (
+          <FormatToolbar active={formatting.active} onApply={formatting.apply} />
+        )}
+
         {/* Mention autocomplete popover */}
         {mentionState && mentionMatches.length > 0 && (
           <MentionPopover
@@ -869,11 +955,19 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
           />
         )}
 
+        <PreparingFileTiles
+          files={preparing}
+          onSendOriginal={(id) => settlePreparing(id, 'original')}
+          onCancel={(id) => settlePreparing(id, 'cancel')}
+        />
+
         <StagedTransferTiles
           stagedTransfers={stagedTransfers}
           previewUrls={previewUrlsRef.current}
           onRemove={removeStagedTransfer}
         />
+
+        {!recordingVoice && <FormatPreview content={draftText} channelId={channelId} />}
 
         {recordingVoice ? (
           <VoiceRecorderBar
@@ -885,28 +979,53 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
           />
         ) : (
         <div className="flex items-center gap-1 desktop:gap-0 pl-2 desktop:pl-[10px] pr-2 desktop:pr-1">
-          {/* File attach button */}
+          {/* File attach button: opens the Photo or video / Document menu */}
           {canAttachFiles && (
             <Tooltip content={t('chat:composer.attachFile')} position="top"><button data-icon-motion="attach"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setAttachMenuOpen((open) => !open)}
               className="w-10 h-10 desktop:w-[34px] desktop:h-[34px] flex items-center justify-center rounded-[6px] text-txt-tertiary hover:text-txt-secondary transition-colors flex-shrink-0"
 
               aria-label={t('chat:composer.attachFile')}
+              aria-haspopup="menu"
+              aria-expanded={attachMenuOpen}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
               </svg>
             </button></Tooltip>
           )}
+          {attachMenuOpen && canAttachFiles && (
+            <AttachMenu
+              compressMedia={compressMedia}
+              onCompressMediaChange={setCompressMedia}
+              onPickMedia={() => fileInputRef.current?.click()}
+              onPickDocument={() => documentInputRef.current?.click()}
+              onClose={() => setAttachMenuOpen(false)}
+            />
+          )}
           <input
             ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            className="hidden"
+            onChange={(e) => {
+              const selected = Array.from(e.target.files ?? []);
+              for (const f of selected) {
+                void enqueueFile({ file: f });
+              }
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={documentInputRef}
             type="file"
             multiple
             className="hidden"
             onChange={(e) => {
               const selected = Array.from(e.target.files ?? []);
               for (const f of selected) {
-                void enqueueFile({ file: f });
+                void enqueueFile({ file: f, mode: 'original' });
               }
               e.target.value = '';
             }}
@@ -921,12 +1040,7 @@ export function MessageInput({ channelId, channelName, placeholder }: MessageInp
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onPaste={canAttachFiles ? handlePaste : undefined}
-            placeholder={
-              placeholder ??
-              (channelName.startsWith('@')
-                ? t('chat:composer.placeholder.dm', { name: channelName.slice(1) })
-                : t('chat:composer.placeholder.channel', { name: channelName }))
-            }
+            placeholder={placeholderText}
             className="input-embedded relative block w-full py-[10px] px-1 resize-none text-ui-message leading-[1.375rem] max-h-[calc(50*var(--app-vh))] scrollbar-thin"
             rows={1}
           />

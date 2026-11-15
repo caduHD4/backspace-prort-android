@@ -210,7 +210,7 @@ Profile images (avatars, banners, space icons) use the general upload pipeline b
 - Skips the resize for animations with more than `MAX_ANIMATED_PAGES` (120) frames and keeps the original; decoding every frame unbounded can stall the server
 - Non-fatal: on error, original file is preserved, temp file cleaned up
 
-**Animated profile images skip the browser crop.** `AccountPanel` asks `utils/animatedImage.ts` before opening `ImageCropModal`; a GIF (and a WebP/APNG whose `ImageDecoder` frame count is above one) is uploaded with its real extension instead. The crop path paints a single frame into a canvas, which would flatten the animation before the server ever sees it. The avatar and banner containers frame the full image with `object-cover` / `background-size: cover`; the server resize keeps every frame. The upload filename must carry the real extension because `files.ts` derives the served MIME type from it.
+**Animated profile images are cropped by the server.** The crop path in the browser (`cropImage`) paints a single frame into a canvas, which would flatten an animation. So a GIF avatar or banner opens `ImageCropModal` like any picture, but the dialog only reports the chosen region (`onCropSelection`): `AccountPanel` uploads the whole GIF, shows a still of the first frame cropped to that region as the preview, and sends `avatarCrop` / `bannerCrop` (whole pixels of one frame) with `avatar` / `banner` in `PATCH /api/users/@me`. The server (`routes/users.ts`, `utils/cropAnimatedBanner.ts:cropAnimatedGif`) checks the upload is the caller's own unattached `.gif`, extracts the region from every frame with sharp, scales it to fit 256x256 (avatar) or 1280x720 (banner), stores it as a new GIF, and deletes the source upload and its attachment row once the profile points at the copy. Crops over 240 frames or 64 million decoded pixels, or outside the image, are `400 validation_failed`. A WebP/APNG whose `ImageDecoder` frame count is above one is not cropped: it uploads as-is with its real extension and the avatar and banner containers frame it with `object-cover` / `background-size: cover`. The upload filename must carry the real extension because `files.ts` derives the served MIME type from it. Space icons and banners follow the same server crop for banners (`bannerCrop` on the space update); group-DM and space icons upload a GIF as-is.
 
 ### Profile Upload Lifecycle
 
@@ -467,6 +467,20 @@ Age-based media cleanup:
 
 When `dryRun = true`: counts are computed but no files/records are deleted.
 
+### Disk-pressure cleanup (`utils/diskPressure.ts`)
+
+When the disk fills up, the instance frees space on its own. **The instance owner turns it on in Settings > Storage > Automatic cleanup** (`DiskCleanupSection.tsx`); it is off by default because the second stage deletes members' old attachments. The settings are columns of `instance_settings` (`diskCleanupEnabled`, `diskCleanupThresholdPercent`, `diskCleanupTargetPercent`, `diskCleanupMinAgeDays`; database.md) written through `PATCH /api/settings/instance` (admin.md), so no restart and no environment variable is involved.
+
+`readDiskUsage()` reads `fs.statfsSync` of the data directory (`dirname(DB_PATH)`) and computes the percentage `df` prints (`used / (used + available)`). It measures the **whole filesystem**, so on a small VPS the figure is the server's disk, not only this app's files.
+
+A worker (`startDiskPressureWorker`, started next to the backup worker; first check 30 s after boot, then every 15 minutes, `DISK_CHECK_INTERVAL_MINUTES`) calls `sweepDiskPressure()`, which reads the owner's settings each time (`readDiskCleanupSettings`, made consistent by `resolveDiskPressureSettings`: threshold 50..99, target 10..threshold-5, floor of at least 1 day), does nothing while the switch is off, and otherwise runs `runDiskPressureSweep`:
+
+1. Below the threshold (default 90): nothing happens.
+2. **Safe stage:** `cleanupStorage(false)` (orphans, unlinked uploads older than 1 h, dangling rows) and `cleanupStaleTusSessions(1 h)`. If usage is back under the threshold, the sweep ends here (`stage: 'safe'`).
+3. **Media stage:** `deleteOldestMedia(minAgeDays, shouldStop)` deletes chat attachments **oldest first** (file, thumbnail and row; the message text stays) until usage is under the target (default 80). `shouldStop` re-reads the disk every 20 files. Nothing newer than the age floor (default 30 days) is ever touched, files in use as a profile image are skipped, and at most 20 000 candidates are considered per sweep. When nothing old enough is left the sweep stops, so a disk filled by something else (container images, logs) never costs recent content.
+
+A sweep in flight is never doubled. The last sweep (`DiskPressureRun`: before/after percentage, stage, files, bytes, errors) is kept in memory and returned, with the live usage and the effective settings, by `GET /api/admin/storage/disk` (`DiskPressureStatus`). `POST /api/admin/storage/disk/sweep` is the panel's **Check now**: it runs the same check with the saved settings (409 `disk_cleanup_disabled` while off) and answers `run: null` when the disk is under the threshold.
+
 ### Federation GC (`runFederationJanitor()`)
 
 Periodic cleanup of federation data (called by background worker):
@@ -509,6 +523,8 @@ The admin routes (`routes/admin.ts`) expose the janitor functions via REST:
 | `POST /api/admin/storage/cleanup` | POST | `cleanupStorage(dryRun)` |
 | `POST /api/admin/storage/cleanup-media` | POST | `cleanupOldMedia(maxAgeDays, dryRun)` |
 | `POST /api/admin/storage/cleanup-tus` | POST | `cleanupStaleTusSessions(maxAgeHours * 3600 * 1000, dryRun)` |
+| `GET /api/admin/storage/disk` | GET | `getDiskPressureStatus()` (see Disk-pressure cleanup) |
+| `POST /api/admin/storage/disk/sweep` | POST | `sweepDiskPressure()` when `diskCleanupEnabled` |
 
 All require JWT + admin role. See `docs/systems/api.md` for request/response formats.
 
@@ -539,6 +555,17 @@ The zone is enabled only when the user may send and attach (`SEND_MESSAGES` and 
 3. The orchestrator (`packages/web/src/stores/pendingMessageRehydrate.ts`) polls `listReadyForDeferredSend()`; once every transfer in the bubble is `completed` with an `attachmentId`, it fires `POST /messages` with the collected `attachmentIds` and removes the bubble on success.
 4. WS echo dedup: when a real message arrives in the channel (`chatStore.addMessage` or `addRealtimeMessage`) whose content + sorted attachmentIds match a pending bubble (`pendingMessageStore.matchAndRemove`), the oldest matching bubble is removed (FIFO tiebreaker). The author is not compared: the attachment ids were issued to this client's uploads, so a match is the echo. Until then the bubble renders as the user's row on the channel's instance (`myRowForOrigin`, client-federation.md §5); no bubble renders while that instance has not named the row.
 5. Failure: bubble flips to `state: 'failed'`. Retry re-runs failed transfers only; discard aborts everything and clears the bubble.
+
+### Compression and documents (`utils/mediaCompression.ts`)
+
+Photos and videos are **shrunk on the sender's device before the upload starts** (`MessageInput.enqueueFile`); the server and the tus pipeline only see the smaller file. The default is on (`stores/mediaUploadPreferences.ts`, `backspace-media-upload-preferences`); the composer's attach button opens `AttachMenu` with **Photo or video** (compressed unless the default was turned off) and **Document** (`mode: 'original'`: any file, uploaded byte for byte, no preview-side change), plus the switch for the default. A paste or drop follows the default.
+
+- **Photos** (`image/jpeg|png|webp|bmp`, at least 350 KB): `createImageBitmap` + canvas, longest side capped at 2560 px, quality 0.85. JPEG stays JPEG; PNG, BMP and WebP become WebP (alpha kept). Animated WebP/PNG (VP8X animation flag, `acTL` chunk) and GIF/SVG are never touched. Drawing on a canvas drops EXIF, GPS position included.
+- **Videos** (8 MB to 400 MB, and only above about 2 Mbit/s): WebCodecs through `mediabunny` (MPL-2.0, loaded on first use with a dynamic `import`; `vite.config.ts` puts it under `assets/media-compression/`, which `PRECACHE_EXCLUDED_PREFIXES` keeps out of the service worker's precache, so members who never send a video never download it). Picture capped at 720p, `QUALITY_MEDIUM`; H.264 + AAC in MP4 when the browser can encode them, otherwise VP9 + Opus in WebM. The result is built in memory (`BufferTarget`), which is why the upper bound exists.
+- **Keep-the-original rules:** the re-encoded file replaces the original only if it is under 90 % of its size; any failure, unsupported browser, cancel or unreadable file uploads the original. `shouldTryCompression` decides up front, so small files go straight to the upload with no progress tile.
+- **UI:** a video shows a `PreparingFileTiles` card with progress, **Send original** (aborts the encode, uploads the untouched file) and **Cancel**. A `FileSystemFileHandle` is dropped for a compressed file, since resume would read the original bytes.
+
+No server change: the output is an ordinary photo or video attachment, so thumbnails, `playable` classification and the janitor behave as before.
 
 ### Reload Survival
 
@@ -787,6 +814,15 @@ The activity a game reports can carry an icon, and that icon comes from the play
 `GET /api/game-icons/assets/<id>.webp` is public with the same sandbox headers as a sticker asset (immutable cache, `default-src 'none'`), so a federated peer's browser loads it the way it loads any image embed. **Retention.** `game_icons.created_at` means "last uploaded": an upload of bytes the account already holds renews it. Phase 5 of the storage janitor (`cleanupGameIconAssets`, `utils/gameIconAssets.ts`) drops claims not renewed for a year (`GAME_ICON_RETENTION_MS`), then deletes assets no remaining claim names once they are older than 24 hours (`GAME_ICON_ASSET_GRACE_MS`; an upload writes its asset row before its file and claim), files no asset row names, and stale `.tmp` files, honouring dry run. The desktop client uploads a played game's icon again once its last upload is 30 days old (`backspace_game_icons_seen` in `localStorage`; a cache from before that key counts as due), so only an icon nobody used for a year goes; an icon that expires while still shown on a profile is a missing image until its owner next plays the game. There is no removal route, and account deletion removes only the claims (the janitor then removes the assets). The per-account quota stays the bound on what one account can store (25,600 icons of normally a few dozen KiB each; the 10 uploads per minute make filling it a matter of days); a byte budget is open work.
 
 ---
+
+### Spoilers
+
+An image or a video can be sent as a spoiler: it is drawn blurred, under a "Spoiler" badge, until the viewer clicks it. Text has no spoiler.
+
+- **Choosing.** The staged tile in the composer (`StagedTransferTiles`) has an eye button for images and videos (`canBeSpoiler` in `@backspace/shared/src/constants`). The choice lives on the transfer (`Transfer.spoiler`) and is read when the pending message is sent (`pendingMessageRehydrate.ts`), which sends the marked attachment ids as `spoilerAttachments` next to `attachments` on `POST /api/channels/:id/messages` and `POST /api/dm/:id/messages` (and `dm_message_create`).
+- **Enforcing.** `readSpoilerSelection` (`utils/attachmentSpoilers.ts`) accepts only ids that are among the message's own attachments and are images or videos; anything else is `400 validation_failed`. A missing field means no spoilers. The mark is written to `attachments.spoiler` in the same transaction that links the attachment. It is fixed at send time: there is no edit.
+- **Wire.** `Attachment.spoiler` is on every message payload (REST, WebSocket), on the DM relay and initial-sync attachment payloads (federation.md), and on bookmark copies. A relayed message from an older instance has no field and is read as not a spoiler; the client also ignores the mark on any other file type.
+- **Drawing.** `AttachmentRenderer` renders a covered attachment with `SpoilerCover`: images show their thumbnail blurred; a covered video mounts no `<video>` element, so nothing loads until the click. What the viewer has uncovered lives in `spoilerStore` for the session only (a reload covers it again), keyed by attachment id. The sender sees the cover too. Reply previews, search results, notifications and bookmark rows show names and counts, never the pixels, so they need no cover.
 
 ## Boundary with Federation
 

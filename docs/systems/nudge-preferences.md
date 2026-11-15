@@ -46,7 +46,9 @@ overrides cover those cases. Automatic monitor discovery uses the Windows
 helper; other platforms use the running-game signal and the conservative
 fallback or manual override. Exclusive fullscreen applications can prevent
 desktop notifications from appearing. Browser-only sessions cannot render
-desktop overlays or load the Electron-packaged original wink movies.
+desktop overlays. In the app, a browser plays the same wink and knock clips from
+the desktop resources through their bundled asset URLs (`utils/nudgeMedia.ts`);
+when autoplay with sound is refused, the clip plays muted.
 
 ## Navegador (sem Electron)
 

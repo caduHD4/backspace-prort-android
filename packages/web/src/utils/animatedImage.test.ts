@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAnimatedImageFile, profileImageFileName } from './animatedImage';
+import { isAnimatedImageFile, profileImageFileName, isGifFile } from './animatedImage';
 
 function fileOf(name: string, type: string, bytes: number[] = [0]): File {
   return new File([new Uint8Array(bytes)], name, { type });
@@ -44,5 +44,19 @@ describe('profileImageFileName', () => {
 
   it('falls back to png when neither MIME nor name carries a known extension', () => {
     expect(profileImageFileName('avatar', fileOf('picture', ''))).toBe('avatar.png');
+  });
+});
+
+describe('isGifFile', () => {
+  it('recognises a GIF by MIME type, or by extension when the browser gave none', () => {
+    expect(isGifFile(fileOf('cat.gif', 'image/gif'))).toBe(true);
+    expect(isGifFile(fileOf('cat.gif', ''))).toBe(true);
+    expect(isGifFile(fileOf('cat.gif', 'application/octet-stream'))).toBe(true);
+  });
+
+  it('does not take a still picture, or a GIF-named file of another type, for a GIF', () => {
+    expect(isGifFile(fileOf('cat.png', 'image/png'))).toBe(false);
+    expect(isGifFile(fileOf('cat.gif', 'image/png'))).toBe(false);
+    expect(isGifFile(fileOf('anim.webp', 'image/webp'))).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ParticipantInfo } from '../hooks/useLiveKit';
 import { AudioManager } from '../audio/AudioManager';
+import { DEFAULT_SENSITIVITY } from '../audio/voiceGate';
 import { useSpaceStore, getChannelOrigin, getMyUserIdForOrigin } from './spaceStore';
 import { useAuthStore } from './authStore';
 import { isElectron } from '../platform/platform';
@@ -134,6 +135,10 @@ export interface VoiceState {
   connectionQualities: Map<string, VoiceConnectionQuality>;
   setConnectionQuality: (q: VoiceConnectionQuality, identity?: string) => void;
   inputVolume: number;  // 0-200 (100 = default)
+  /** Voice gate: decide automatically what is speech from the noise of the room, or by `inputSensitivity`. */
+  inputSensitivityAuto: boolean;
+  /** Voice gate sensitivity, 0-100 (100 = most sensitive); used when `inputSensitivityAuto` is off. */
+  inputSensitivity: number;
   outputVolume: number; // 0-200 (100 = default)
   inputDeviceId: string;
   outputDeviceId: string;
@@ -219,6 +224,8 @@ export interface VoiceState {
   setConnectionError: (error: string | null) => void;
   setIsLiveKitConnected: (connected: boolean) => void;
   setInputVolume: (volume: number) => void;
+  setInputSensitivityAuto: (auto: boolean) => void;
+  setInputSensitivity: (sensitivity: number) => void;
   setOutputVolume: (volume: number) => void;
   setInputDevice: (deviceId: string) => void;
   setOutputDevice: (deviceId: string) => void;
@@ -229,6 +236,9 @@ export interface VoiceState {
   setPttActive: (active: boolean) => void;
   toggleMic: () => void;
   toggleCamera: () => void;
+  /** True from the camera click until it is published (or failed): the buttons show progress and ignore clicks. */
+  isCameraStarting: boolean;
+  setCameraStarting: (starting: boolean) => void;
   toggleScreenShare: () => void;
   toggleDeafen: () => void;
   setFocusedParticipant: (id: string | null) => void;
@@ -327,6 +337,7 @@ export const useVoiceStore = create<VoiceState>()(
       pttActive: false,
       isDeafened: false,
       isCameraOn: false,
+      isCameraStarting: false,
       isScreenSharing: false,
       screenShareAudio: null,
       livekitHostOrigin: '',
@@ -341,6 +352,8 @@ export const useVoiceStore = create<VoiceState>()(
       connectionQuality: 'unknown',
       connectionQualities: new Map(),
       inputVolume: 100,
+      inputSensitivityAuto: true,
+      inputSensitivity: DEFAULT_SENSITIVITY,
       outputVolume: 100,
       inputDeviceId: 'default',
       outputDeviceId: 'default',
@@ -602,6 +615,15 @@ export const useVoiceStore = create<VoiceState>()(
         set({ inputVolume: volume });
         AudioManager.getInstance().setInputVolume(volume);
       },
+      setInputSensitivityAuto: (auto) => {
+        set({ inputSensitivityAuto: auto });
+        AudioManager.getInstance().setVoiceGate({ auto, sensitivity: get().inputSensitivity });
+      },
+      setInputSensitivity: (sensitivity) => {
+        const value = Math.min(100, Math.max(0, Math.round(sensitivity)));
+        set({ inputSensitivity: value });
+        AudioManager.getInstance().setVoiceGate({ auto: get().inputSensitivityAuto, sensitivity: value });
+      },
       setOutputVolume: (volume) => set({ outputVolume: volume }),
       
       setInputDevice: (deviceId) => set({ inputDeviceId: deviceId }),
@@ -666,6 +688,7 @@ export const useVoiceStore = create<VoiceState>()(
         return { isMuted: true, isDeafened: true };
       }),
       toggleCamera: () => set((state) => ({ isCameraOn: !state.isCameraOn })),
+      setCameraStarting: (starting) => set({ isCameraStarting: starting }),
       toggleScreenShare: () => set((state) => ({ isScreenSharing: !state.isScreenSharing })),
 
       setFocusedParticipant: (id) => set({ focusedParticipantId: id }),
@@ -918,6 +941,8 @@ export const useVoiceStore = create<VoiceState>()(
         connectionQuality: 'unknown',
         connectionQualities: new Map(),
         inputVolume: 100,
+        inputSensitivityAuto: true,
+        inputSensitivity: DEFAULT_SENSITIVITY,
         outputVolume: 100,
         inputDeviceId: 'default',
         outputDeviceId: 'default',
@@ -1032,6 +1057,8 @@ export const useVoiceStore = create<VoiceState>()(
         isMuted: state.isMuted,
         isDeafened: state.isDeafened,
         inputVolume: state.inputVolume,
+        inputSensitivityAuto: state.inputSensitivityAuto,
+        inputSensitivity: state.inputSensitivity,
         outputVolume: state.outputVolume,
         inputDeviceId: state.inputDeviceId,
         outputDeviceId: state.outputDeviceId,

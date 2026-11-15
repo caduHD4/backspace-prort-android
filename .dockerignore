@@ -15,6 +15,8 @@ packages/desktop/*
 # The web build imports these shared UI definitions from the desktop package.
 !packages/desktop/resources
 packages/desktop/resources/*
+# The web build bundles the movie-nudge clips and reads their catalog.
+!packages/desktop/resources/nudge-msn
 !packages/desktop/resources/icon-motion.js
 !packages/desktop/resources/icon-motion.json
 !packages/desktop/resources/icon-motion.d.ts

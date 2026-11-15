@@ -34,6 +34,8 @@ export interface Transfer {
   attachmentId?: string;
   attachmentFilename?: string;
   uploaderUserId?: string;
+  /** The sender chose to send this file as a spoiler (images and videos only); read when the message is sent. */
+  spoiler?: boolean;
 
   // Download-specific
   sourceUrl?: string;
@@ -70,6 +72,7 @@ interface TransferStoreActions {
   setError: (id: string, error: TransferError) => void;
   setTusUrl: (id: string, url: string, expiresAt: number) => void;
   setAttachmentRef: (id: string, attachmentId: string, filename: string) => void;
+  setSpoiler: (id: string, spoiler: boolean) => void;
   remove: (id: string) => void;
 
   startUpload: (file: Blob, opts: { channelId?: string; tray?: boolean; origin?: string; fileHandleId?: string }) => Promise<string>;
@@ -217,6 +220,14 @@ export const useTransferStore = create<TransferStore>()(
         if (!t) return s;
         const next = new Map(s.transfers);
         next.set(id, { ...t, attachmentId, attachmentFilename: filename });
+        return { transfers: next };
+      }),
+
+      setSpoiler: (id, spoiler) => set((s) => {
+        const t = s.transfers.get(id);
+        if (!t || t.spoiler === spoiler) return s;
+        const next = new Map(s.transfers);
+        next.set(id, { ...t, spoiler });
         return { transfers: next };
       }),
 

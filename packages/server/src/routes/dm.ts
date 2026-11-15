@@ -196,6 +196,7 @@ export function buildDmMessageWithUser(
       height: a.height ?? null,
       duration: a.duration ?? null,
       playable: a.playable ?? null,
+      spoiler: a.spoiler ?? false,
       federationStatus: a.federationStatus ?? null,
       federationMeta: a.federationMeta ?? null,
       createdAt: a.createdAt,
@@ -2081,7 +2082,7 @@ export async function dmRoutes(app: FastifyInstance): Promise<void> {
     if (!check.ok) {
       return sendError(reply, check.refusal.status, check.refusal.code, check.refusal.details);
     }
-    const { content, attachmentIds, replyToId } = check.value;
+    const { content, attachmentIds, spoilerIds, replyToId } = check.value;
 
     const db = getDb();
     const messageId = generateSnowflake();
@@ -2100,7 +2101,7 @@ export async function dmRoutes(app: FastifyInstance): Promise<void> {
 
       for (const attId of attachmentIds) {
         tx.update(schema.attachments)
-          .set({ dmMessageId: messageId })
+          .set({ dmMessageId: messageId, spoiler: spoilerIds.includes(attId) })
           .where(eq(schema.attachments.id, attId))
           .run();
       }

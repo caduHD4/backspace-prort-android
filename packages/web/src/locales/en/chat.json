@@ -105,6 +105,34 @@
       "denied": "Microphone access is blocked. Allow it for Backspace to record.",
       "unavailable": "No microphone could be used to record.",
       "limit": "Recording limit reached. Your voice message was sent."
+    },
+    "attach": {
+      "menuLabel": "Attach",
+      "photoVideo": "Photo or video",
+      "photoVideoCompressed": "Shrunk on your device before sending",
+      "photoVideoOriginal": "Sent as they are (compression is off)",
+      "document": "Document",
+      "documentHint": "Any file, sent exactly as it is",
+      "compressDefault": "Compress photos and videos",
+      "compressDefaultHint": "Smaller uploads. Turn off to keep originals."
+    },
+    "preparing": {
+      "image": "Compressing photo…",
+      "video": "Compressing video… {{percent}}%",
+      "sendOriginal": "Send original",
+      "cancel": "Cancel"
+    },
+    "format": {
+      "toolbar": "Text formatting",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strike": "Strikethrough",
+      "code": "Inline code",
+      "codeBlock": "Code block",
+      "quote": "Quote",
+      "bullet": "Bulleted list",
+      "numbered": "Numbered list",
+      "preview": "Preview"
     }
   },
   "menu": {
@@ -149,6 +177,12 @@
       "pause": "Pause voice message",
       "speed": "Playback speed {{speed}}",
       "seek": "Position in the voice message"
+    },
+    "spoiler": {
+      "label": "Spoiler",
+      "reveal": "Reveal spoiler",
+      "mark": "Mark as spoiler",
+      "unmark": "Remove spoiler mark"
     }
   },
   "gif": {

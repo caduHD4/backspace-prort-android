@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useTransferStore, type Transfer } from '../../stores/transferStore';
 import { AttachmentProgress } from './AttachmentProgress';
+import { canBeSpoiler } from '@backspace/shared/src/constants';
 
 interface StagedTransferTilesProps {
   stagedTransfers: Transfer[];
@@ -14,6 +15,7 @@ export function StagedTransferTiles({ stagedTransfers, previewUrls, onRemove }: 
   const { t } = useTranslation('chat');
   const pauseUpload = useTransferStore((s) => s.pauseUpload);
   const resumeUpload = useTransferStore((s) => s.resumeUpload);
+  const setSpoiler = useTransferStore((s) => s.setSpoiler);
 
   if (stagedTransfers.length === 0) return null;
 
@@ -24,6 +26,8 @@ export function StagedTransferTiles({ stagedTransfers, previewUrls, onRemove }: 
         const isFinal = transfer.state === 'completed';
         const showOverlay = transfer.state !== 'completed';
         const previewUrl = previewUrls.get(transfer.id);
+        const spoilerAllowed = canBeSpoiler(transfer.file.mimetype);
+        const isSpoiler = spoilerAllowed && transfer.spoiler === true;
         return (
           <div
             key={transfer.id}
@@ -35,7 +39,7 @@ export function StagedTransferTiles({ stagedTransfers, previewUrls, onRemove }: 
                   <img
                     src={previewUrl}
                     alt={transfer.file.name}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isSpoiler ? 'blur-xl scale-110' : ''}`}
                   />
                 ) : (
                   <svg className="w-10 h-10 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,6 +59,26 @@ export function StagedTransferTiles({ stagedTransfers, previewUrls, onRemove }: 
                 </svg>
                 <span className="truncate max-w-[120px] font-medium">{transfer.file.name}</span>
               </div>
+            )}
+
+            {/* Spoiler mark: images and videos can be sent covered. */}
+            {spoilerAllowed && (
+              <button data-icon-motion="press"
+                type="button"
+                onClick={() => setSpoiler(transfer.id, !isSpoiler)}
+                aria-pressed={isSpoiler}
+                aria-label={isSpoiler ? t('attachment.spoiler.unmark') : t('attachment.spoiler.mark')}
+                title={isSpoiler ? t('attachment.spoiler.unmark') : t('attachment.spoiler.mark')}
+                className={`absolute -top-2 -left-2 w-7 h-7 shadow-elevation-high rounded-lg flex items-center justify-center transition-colors z-10 ${
+                  isSpoiler ? 'bg-accent-primary text-white' : 'glass text-txt-secondary hover:text-txt-primary'
+                }`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {isSpoiler
+                    ? <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><path d="M1 1l22 22" /></>
+                    : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>}
+                </svg>
+              </button>
             )}
 
             {/* Clip the overlay, not the remove chip that extends beyond the tile. */}

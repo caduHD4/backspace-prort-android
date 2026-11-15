@@ -1,5 +1,5 @@
 {
-"attentionMutes": {
+  "attentionMutes": {
     "title": "已静音的用户",
     "description": "在此设备上屏蔽指定用户的提醒声音、动画和通知。消息和通话仍可正常使用。",
     "mute": "静音窗口提醒",
@@ -28,6 +28,10 @@
   "theme": {
     "label": "主题",
     "description": "选择 Backspace 的外观。设置保存在此设备上的当前浏览器或应用中。",
+    "msnFrames": {
+      "label": "Windows XP 边框",
+      "description": "类似 Windows XP 的斜面蓝色窗口边框。"
+    },
     "options": {
       "aether-drift": {
         "name": "Aether Drift",
@@ -44,6 +48,14 @@
       "anime": {
         "name": "动漫",
         "description": "暮色靛紫搭配樱花粉点缀。"
+      },
+      "msn": {
+        "name": "MSN",
+        "description": "明亮的 Live Messenger 蓝色，带有光泽按钮和 Segoe 字体。"
+      },
+      "msn-dark": {
+        "name": "MSN 深色",
+        "description": "深海军蓝底色上的 Live Messenger 蓝色，带有光泽按钮。"
       }
     }
   },
@@ -75,6 +87,14 @@
       },
       "meter": {
         "hint": "音量指示条将在您加入语音频道后激活。"
+      },
+      "sensitivity": {
+        "label": "输入灵敏度",
+        "auto": "自动确定输入灵敏度",
+        "lower": "灵敏度较低",
+        "higher": "灵敏度较高",
+        "hintAuto": "Backspace 会跟随环境噪音，在你的声音高于噪音时发送。关闭后可手动设置。",
+        "hintManual": "当音量条超过白色标记时才会发送你的声音。拖动滑块，让标记在你安静时刚好高于噪音。"
       }
     },
     "output": {
@@ -383,6 +403,10 @@
         "dragHandle": "拖动 {{name}} 以更改优先级",
         "manualNameLabel": "{{name}} 的名称",
         "save": "保存"
+      },
+      "hideBrowserMedia": {
+        "label": "隐藏浏览器播放器",
+        "description": "在 Chrome、Firefox、Edge 等浏览器中播放的标签页（如 YouTube 视频、网页播放器）不会显示为正在收听或观看。"
       }
     }
   },

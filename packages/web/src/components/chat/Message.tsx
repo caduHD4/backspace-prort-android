@@ -122,6 +122,9 @@ function formatHoverTime(timestamp: number): string {
   return formatters.formatTime(timestamp);
 }
 
+/** How long after a touch a `mouseenter` is treated as the browser's compatibility event, not a real mouse. */
+const TOUCH_COMPAT_MOUSE_MS = 1000;
+
 const GIF_URL_REGEX = /^https:\/\/(?:media\.tenor\.com|static\.klipy\.com)\/.+$/;
 
 function isGifOnlyMessage(content: string | null): boolean {
@@ -152,6 +155,11 @@ export function Message({ message, isCompact, isFirstInGroup, previousMessageId 
   const fmt = useFormatters();
   const [editContent, setEditContent] = useState(message.content ?? '');
   const [isHovered, setIsHovered] = useState(false);
+  // A tap makes the browser fire compatibility mouse events at the tapped point,
+  // so `mouseenter` arrives right after `touchend`. Without this the desktop
+  // action bar (reactions, reply, delete) pops up under the finger and the click
+  // that follows lands on one of its buttons.
+  const lastTouchAt = useRef(0);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // The reaction picker, and what opened it: the "+" of the hover bar, or the
   // message menu ('row'). On desktop it hangs off that button or the message
@@ -513,7 +521,12 @@ export function Message({ message, isCompact, isFirstInGroup, previousMessageId 
           ? 'bg-accent-amber/10 border-l-2 border-l-accent-amber hover:bg-accent-amber/15'
           : 'hover:bg-[rgba(255,255,255,0.025)]'
       }`}
-      onMouseEnter={() => setIsHovered(true)}
+      onPointerDownCapture={(e) => { if (e.pointerType === 'touch') lastTouchAt.current = Date.now(); }}
+      onMouseEnter={() => {
+        // Touch has no hover: the long-press menu is how a phone reaches these actions
+        if (isMobile || Date.now() - lastTouchAt.current < TOUCH_COMPAT_MOUSE_MS) return;
+        setIsHovered(true);
+      }}
       onMouseLeave={() => {
         setIsHovered(false);
         if (confirmingDelete) {
@@ -538,6 +551,7 @@ export function Message({ message, isCompact, isFirstInGroup, previousMessageId 
               user={displayIdentity}
               origin={displayOrigin}
               member={authorMember}
+              frameStatus={displayIdentity.status}
               className="hover:drop-shadow-md transition-all active:translate-y-[1px]"
             />
           </div>
@@ -794,7 +808,7 @@ export function Message({ message, isCompact, isFirstInGroup, previousMessageId 
       )}
 
       {/* Action buttons on hover */}
-      {showInteractions && (isHovered || reactionPicker === 'button' || confirmingDelete) && !isEditing && (
+      {showInteractions && !isMobile && (isHovered || reactionPicker === 'button' || confirmingDelete) && !isEditing && (
         <div data-side="top" className="motion-floating-enter absolute -top-[18px] right-4 flex items-center glass rounded-[10px] overflow-hidden z-10 h-8">
           {canAddReactions && (
             <div className="flex items-center px-1 border-r border-wash/[0.06] h-full">
@@ -849,8 +863,8 @@ export function Message({ message, isCompact, isFirstInGroup, previousMessageId 
               className="px-2 h-full text-txt-tertiary hover:text-txt-primary hover:bg-interactive-hover transition-all flex items-center justify-center"
 
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
               </svg>
             </button></Tooltip>
           )}

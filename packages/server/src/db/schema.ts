@@ -159,6 +159,9 @@ export const attachments = sqliteTable('attachments', {
   // browser <video>, 0 = known-undecodable (e.g. HEVC .mov), NULL = unknown
   // (codec unprobed / non-video). Drives the client's download fallback.
   playable: integer('playable', { mode: 'boolean' }),
+  // Sender's choice at send time, images and videos only: clients draw the
+  // file blurred until the viewer clicks it (docs/systems/uploads.md).
+  spoiler: integer('spoiler', { mode: 'boolean' }).notNull().default(false),
   sourceUrl: text('source_url'),
   federationStatus: text('federation_status'),
   federationMeta: text('federation_meta'),
@@ -441,6 +444,17 @@ export const instanceSettings = sqliteTable('instance_settings', {
   federationRelayTtlDays: integer('federation_relay_ttl_days').notNull().default(30),
   defaultAutoRotateIntervalDays: integer('default_auto_rotate_interval_days').notNull().default(90),
   autoAcceptPeering: integer('auto_accept_peering').notNull().default(1),
+  /**
+   * Automatic cleanup when the disk is nearly full (utils/diskPressure.ts).
+   * Off by default: it deletes old chat attachments.
+   */
+  diskCleanupEnabled: integer('disk_cleanup_enabled').notNull().default(0),
+  /** Used-space percentage that starts a sweep. */
+  diskCleanupThresholdPercent: integer('disk_cleanup_threshold_percent').notNull().default(90),
+  /** The media stage deletes old chat attachments until usage falls below this. */
+  diskCleanupTargetPercent: integer('disk_cleanup_target_percent').notNull().default(80),
+  /** Chat attachments newer than this many days are never deleted by a sweep. */
+  diskCleanupMinAgeDays: integer('disk_cleanup_min_age_days').notNull().default(30),
   /** null = never asked, 0 = off, 1 = on. */
   telemetryEnabled: integer('telemetry_enabled'),
   /** Random UUID, minted on the first off-to-on transition and kept through off. Never the federation instance_id. */
@@ -903,6 +917,7 @@ export const bookmarkAttachments = sqliteTable('bookmark_attachments', {
   height: integer('height'),
   duration: real('duration'),
   playable: integer('playable', { mode: 'boolean' }),
+  spoiler: integer('spoiler', { mode: 'boolean' }).notNull().default(false),
   sourceFilename: text('source_filename').notNull(),
   sourceThumbnailFilename: text('source_thumbnail_filename'),
   filename: text('filename'),

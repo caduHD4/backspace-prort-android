@@ -6,6 +6,9 @@ import type { Attachment } from '@backspace/shared';
 import { useUIStore } from '../../stores/uiStore';
 import { useTransferStore } from '../../stores/transferStore';
 import { Tooltip } from '../ui/Tooltip';
+import { SpoilerCover } from './SpoilerCover';
+import { useSpoilerStore } from '../../stores/spoilerStore';
+import { canBeSpoiler } from '@backspace/shared/src/constants';
 import { useFormatters } from '../../i18n/formatters';
 
 interface AttachmentRendererProps {
@@ -57,6 +60,9 @@ interface VideoAttachmentProps {
   attUrl: string;
   thumbUrl: string | null;
   federationInlineBadge: React.ReactNode;
+  /** Draw the video covered, and load nothing, until the viewer uncovers it. */
+  covered: boolean;
+  onReveal: () => void;
 }
 
 /**
@@ -78,7 +84,7 @@ interface VideoAttachmentProps {
  * The fallback card surfaces the poster (still a useful preview), filename,
  * duration and size, and a one-tap download — never a silently broken player.
  */
-function VideoAttachment({ attachment, attUrl, thumbUrl, federationInlineBadge }: VideoAttachmentProps) {
+function VideoAttachment({ attachment, attUrl, thumbUrl, federationInlineBadge, covered, onReveal }: VideoAttachmentProps) {
   const { t } = useTranslation(['chat']);
   const { formatBytes } = useFormatters();
   const startDownload = useTransferStore((s) => s.startDownload);
@@ -92,6 +98,19 @@ function VideoAttachment({ attachment, attUrl, thumbUrl, federationInlineBadge }
   const sizing = hasDimensions
     ? { aspectRatio: `${width}/${height}`, maxHeight: 300 }
     : undefined;
+
+  if (covered) {
+    return (
+      <div className="mt-1 max-w-[400px]">
+        <div className="relative max-h-[300px] rounded-lg overflow-hidden" style={sizing}>
+          <SpoilerCover onReveal={onReveal}>
+            {thumbUrl && <img src={thumbUrl} alt="" className="w-full h-full object-cover" loading="lazy" />}
+          </SpoilerCover>
+        </div>
+        {federationInlineBadge && <div className="mt-1">{federationInlineBadge}</div>}
+      </div>
+    );
+  }
 
   if (failed) {
     const meta = [duration ? formatDuration(duration) : null, formatBytes(size)]
@@ -172,6 +191,10 @@ export function AttachmentRenderer({ attachment }: AttachmentRendererProps) {
   const startDownload = useTransferStore((s) => s.startDownload);
 
   const attUrl = attUrlOf(attachment.filename);
+  const revealed = useSpoilerStore((s) => s.revealed.has(attachment.id));
+  const revealSpoiler = useSpoilerStore((s) => s.reveal);
+  // Only images and videos are ever covered, whatever a relayed message says.
+  const covered = attachment.spoiler === true && !revealed && canBeSpoiler(attachment.mimetype);
 
   const thumbUrl = attachment.thumbnailFilename
     ? attachment.thumbnailFilename.startsWith('http') || attachment.thumbnailFilename.startsWith('/')
@@ -243,14 +266,20 @@ export function AttachmentRenderer({ attachment }: AttachmentRendererProps) {
           className="relative rounded-lg overflow-hidden border border-wash/[0.06]"
           style={width && height ? { aspectRatio: `${width}/${height}`, maxWidth: Math.min(width, 400), maxHeight: 300 } : undefined}
         >
-          <img
-            src={thumbUrl ?? attUrl}
-            data-sticker-source={attUrl}
-            alt={originalName}
-            className="w-full h-full max-w-[400px] max-h-[300px] object-contain cursor-pointer hover:brightness-95 transition-all"
-            onClick={() => openImagePreview(attUrl)}
-            loading="lazy"
-          />
+          {covered ? (
+            <SpoilerCover onReveal={() => revealSpoiler(attachment.id)}>
+              <img src={thumbUrl ?? attUrl} alt="" className="w-full h-full max-w-[400px] max-h-[300px] object-contain" loading="lazy" />
+            </SpoilerCover>
+          ) : (
+            <img
+              src={thumbUrl ?? attUrl}
+              data-sticker-source={attUrl}
+              alt={originalName}
+              className="w-full h-full max-w-[400px] max-h-[300px] object-contain cursor-pointer hover:brightness-95 transition-all"
+              onClick={() => openImagePreview(attUrl)}
+              loading="lazy"
+            />
+          )}
         </div>
         {federationInlineBadge && <div className="mt-1">{federationInlineBadge}</div>}
       </div>
@@ -264,6 +293,8 @@ export function AttachmentRenderer({ attachment }: AttachmentRendererProps) {
         attUrl={attUrl}
         thumbUrl={thumbUrl}
         federationInlineBadge={federationInlineBadge}
+        covered={covered}
+        onReveal={() => revealSpoiler(attachment.id)}
       />
     );
   }

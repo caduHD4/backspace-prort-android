@@ -12,12 +12,13 @@ import { DeleteAccountModal } from '../DeleteAccountModal';
 import { api } from '../../../api/client';
 import { useTransferStore } from '../../../stores/transferStore';
 import { waitForTransferAttachment } from '../../../utils/waitForTransfer';
-import { isAnimatedImageFile, profileImageFileName } from '../../../utils/animatedImage';
+import { isAnimatedImageFile, isGifFile, profileImageFileName } from '../../../utils/animatedImage';
+import { cropImage } from '../../../utils/cropImage';
 import { CHOSEN_STATUS_OPTIONS } from '../../../utils/statusOptions';
 import { getAvatarGradient, adjustColor, mutedGradient, AVATAR_GRADIENT_MAP, BANNER_COLOR_PRESETS } from '../../../utils/gradients';
 import { AVATAR_COLORS, detachedHomeOf } from '@backspace/shared';
 import { PASSWORD_MIN_LENGTH } from '@backspace/shared/src/constants';
-import type { User, ChosenUserStatus, AvatarColor } from '@backspace/shared';
+import type { User, ChosenUserStatus, AvatarColor, ImageCropRegion } from '@backspace/shared';
 import { describeError } from '../../../i18n/errors';
 
 const BIO_MAX_LENGTH = 190;
@@ -45,6 +46,10 @@ export function AccountPanel() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarCropSrc, setAvatarCropSrc] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  // An animated GIF is cropped by the server, frame by frame. The file waits
+  // here while the crop dialog is open; the chosen region is sent on save.
+  const animatedAvatarRef = useRef<File | null>(null);
+  const [avatarCrop, setAvatarCrop] = useState<ImageCropRegion | null>(null);
 
   // Banner upload state
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -52,6 +57,8 @@ export function AccountPanel() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [bannerCropSrc, setBannerCropSrc] = useState<string | null>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const animatedBannerRef = useRef<File | null>(null);
+  const [bannerCrop, setBannerCrop] = useState<ImageCropRegion | null>(null);
 
   const addToast = useUIStore((s) => s.addToast);
   const [error, setError] = useState('');
@@ -180,15 +187,25 @@ export function AccountPanel() {
 
   // ── File selection handlers ──
   //
-  // Animated files skip the crop step: the canvas in `cropImage` keeps one
-  // frame, so cropping would flatten the animation before it ever reaches the
-  // server (which does preserve every frame). They upload as-is and are framed
-  // by the avatar/banner containers.
+  // A GIF opens the crop dialog like any picture, but the crop is not made in
+  // the browser: the canvas in `cropImage` keeps one frame, so it would flatten
+  // the animation. The file uploads whole and the chosen region is sent with
+  // the profile; the server crops every frame (`PATCH /api/users/@me`). Other
+  // animated formats (WebP, APNG) upload as-is and are framed by the
+  // avatar/banner containers.
   const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (avatarInputRef.current) avatarInputRef.current.value = '';
+    if (isGifFile(file)) {
+      animatedAvatarRef.current = file;
+      const reader = new FileReader();
+      reader.onload = () => setAvatarCropSrc(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
     if (await isAnimatedImageFile(file)) {
+      setAvatarCrop(null);
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       const previewUrl = URL.createObjectURL(file);
       setAvatarPreview(previewUrl);
@@ -206,7 +223,15 @@ export function AccountPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (bannerInputRef.current) bannerInputRef.current.value = '';
+    if (isGifFile(file)) {
+      animatedBannerRef.current = file;
+      const reader = new FileReader();
+      reader.onload = () => setBannerCropSrc(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
     if (await isAnimatedImageFile(file)) {
+      setBannerCrop(null);
       if (bannerPreview) URL.revokeObjectURL(bannerPreview);
       const previewUrl = URL.createObjectURL(file);
       setBannerPreview(previewUrl);
@@ -257,7 +282,45 @@ export function AccountPanel() {
   };
 
   // ── Crop complete handlers ──
+
+  /** A region as whole pixels, the form the server accepts. */
+  const wholePixels = (area: ImageCropRegion): ImageCropRegion => ({
+    x: Math.max(0, Math.round(area.x)),
+    y: Math.max(0, Math.round(area.y)),
+    width: Math.max(1, Math.round(area.width)),
+    height: Math.max(1, Math.round(area.height)),
+  });
+
+  // The cropped GIF itself is made by the server when the profile is saved,
+  // so the preview shows the chosen region as a still of the first frame.
+  const handleAnimatedAvatarCrop = async (area: ImageCropRegion) => {
+    const file = animatedAvatarRef.current;
+    if (!file || !avatarCropSrc) return;
+    const region = wholePixels(area);
+    const still = await cropImage(avatarCropSrc, region, 'image/webp', { maxDimension: 256 });
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    const previewUrl = URL.createObjectURL(still);
+    setAvatarPreview(previewUrl);
+    setAvatarFilename(null);
+    setAvatarCrop(region);
+    await uploadAvatar(file, previewUrl);
+  };
+
+  const handleAnimatedBannerCrop = async (area: ImageCropRegion) => {
+    const file = animatedBannerRef.current;
+    if (!file || !bannerCropSrc) return;
+    const region = wholePixels(area);
+    const still = await cropImage(bannerCropSrc, region, 'image/webp', { maxDimension: 1280 });
+    if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    const previewUrl = URL.createObjectURL(still);
+    setBannerPreview(previewUrl);
+    setBannerFilename(null);
+    setBannerCrop(region);
+    await uploadBanner(file, previewUrl);
+  };
+
   const handleAvatarCropComplete = async (blob: Blob) => {
+    setAvatarCrop(null);
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     const previewUrl = URL.createObjectURL(blob);
     setAvatarPreview(previewUrl);
@@ -267,6 +330,7 @@ export function AccountPanel() {
   };
 
   const handleBannerCropComplete = async (blob: Blob) => {
+    setBannerCrop(null);
     if (bannerPreview) URL.revokeObjectURL(bannerPreview);
     const previewUrl = URL.createObjectURL(blob);
     setBannerPreview(previewUrl);
@@ -276,12 +340,14 @@ export function AccountPanel() {
   };
 
   const handleRemoveAvatar = () => {
+    setAvatarCrop(null);
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     setAvatarPreview(null);
     setAvatarFilename('');
   };
 
   const handleRemoveBanner = () => {
+    setBannerCrop(null);
     if (bannerPreview) URL.revokeObjectURL(bannerPreview);
     setBannerPreview(null);
     setBannerFilename('');
@@ -291,7 +357,7 @@ export function AccountPanel() {
     setError('');
     setIsLoading(true);
     try {
-      const updates: Record<string, string | undefined> = {};
+      const updates: Parameters<typeof updateProfile>[0] = {};
       if (displayName !== (user.displayName ?? '')) updates.displayName = displayName.trim();
       if (customStatus !== (user.customStatus ?? '')) updates.customStatus = customStatus.trim();
       if (status !== savedStatus) updates.status = status;
@@ -300,8 +366,11 @@ export function AccountPanel() {
       if (avatarColorState !== (user.avatarColor ?? null)) updates.avatarColor = avatarColorState ?? '';
       if (avatarFilename !== null) updates.avatar = avatarFilename;
       if (bannerFilename !== null) updates.banner = bannerFilename;
+      // A GIF's region goes with the upload it belongs to.
+      if (avatarFilename && avatarCrop) updates.avatarCrop = avatarCrop;
+      if (bannerFilename && bannerCrop) updates.bannerCrop = bannerCrop;
 
-      await updateProfile(updates as Parameters<typeof updateProfile>[0]);
+      await updateProfile(updates);
       addToast(t('settings:account.save.updated'), 'success', 2000);
     } catch (err) {
       setError(err instanceof Error ? describeError(err) : t('settings:account.save.failed'));
@@ -497,6 +566,7 @@ export function AccountPanel() {
               type="button"
               onClick={() => bannerInputRef.current?.click()}
               disabled={uploadingBanner}
+              aria-label={t('settings:account.profile.banner.change')}
               className="relative group w-full h-[128px] rounded-lg overflow-hidden border border-wash/[0.06]"
             >
               <div
@@ -857,9 +927,10 @@ export function AccountPanel() {
       {/* Crop Modals */}
       <ImageCropModal
         isOpen={avatarCropSrc !== null}
-        onClose={() => setAvatarCropSrc(null)}
+        onClose={() => { setAvatarCropSrc(null); animatedAvatarRef.current = null; }}
         imageSrc={avatarCropSrc ?? ''}
         onCropComplete={handleAvatarCropComplete}
+        onCropSelection={animatedAvatarRef.current ? handleAnimatedAvatarCrop : undefined}
         title={t('settings:account.profile.avatar.cropTitle')}
         cropShape="round"
         aspectRatio={1}
@@ -867,9 +938,10 @@ export function AccountPanel() {
       />
       <ImageCropModal
         isOpen={bannerCropSrc !== null}
-        onClose={() => setBannerCropSrc(null)}
+        onClose={() => { setBannerCropSrc(null); animatedBannerRef.current = null; }}
         imageSrc={bannerCropSrc ?? ''}
         onCropComplete={handleBannerCropComplete}
+        onCropSelection={animatedBannerRef.current ? handleAnimatedBannerCrop : undefined}
         title={t('settings:account.profile.banner.cropTitle')}
         cropShape="rect"
         aspectRatio={9 / 4}

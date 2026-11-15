@@ -8,7 +8,8 @@ import { MentionBadge } from './MentionBadge';
 import { remarkEmojiShortcodes } from '../../utils/remarkEmojiShortcodes';
 import { useEmojiShortcodeNames } from '../../utils/emojiShortcodes';
 import { splitMentions } from '../../utils/mentionTokens';
-import { useThemeStore } from '../../stores/themeStore';
+import { normalizeWhatsappEmphasis } from '../../utils/messageFormatting';
+import { isLightTheme, useThemeStore } from '../../stores/themeStore';
 
 // ─── Remark Plugin: Tag Bare Fenced Blocks ─────────────────────────────────
 // react-markdown v9 removed the `inline` prop from <code>. Fenced blocks
@@ -96,8 +97,19 @@ const aetherLightTheme = {
 
 const REMARK_PLUGINS = [remarkGfm, remarkDefaultCodeLang, remarkEmojiShortcodes];
 
+/**
+ * The text inside a fenced block. An empty block (a lone fence line such as
+ * "```js") hands `<code>` no children at all, and `String(undefined)` would
+ * print the word "undefined" in the message.
+ */
+export function codeText(children: React.ReactNode): string {
+  if (children === null || children === undefined || typeof children === 'boolean') return '';
+  if (Array.isArray(children)) return children.map(codeText).join('');
+  return String(children);
+}
+
 function CodeBlock({ language, code }: { language: string; code: string }) {
-  const isLightTheme = useThemeStore(state => state.theme === 'light');
+  const isLightScheme = useThemeStore(state => isLightTheme(state.theme));
   // 'text' means a bare fenced block with no language — render without highlighting
   if (language === 'text') {
     return (
@@ -108,7 +120,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   }
 
   return (
-    <Highlight theme={isLightTheme ? aetherLightTheme : aetherTheme} code={code} language={language}>
+    <Highlight theme={isLightScheme ? aetherLightTheme : aetherTheme} code={code} language={language}>
       {({ style, tokens, getLineProps, getTokenProps }) => (
         <pre
           className="mt-1 rounded border border-wash/[0.06] text-[0.875rem] leading-[1.125rem] font-mono overflow-x-auto"
@@ -187,7 +199,7 @@ function buildComponents(): Components {
     code: ({ className, children, ...rest }) => {
       const match = /language-(\w+)/.exec(className || '');
       if (match) {
-        const code = String(children).replace(/\n$/, '');
+        const code = codeText(children).replace(/\n$/, '');
         return <MemoizedCodeBlock language={match[1]!} code={code} />;
       }
       // Inline code
@@ -277,7 +289,7 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({ content, 
   return (
     <MentionChannelContext.Provider value={channelId}>
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS} urlTransform={urlTransform}>
-        {preprocessMentions(content)}
+        {preprocessMentions(normalizeWhatsappEmphasis(content))}
       </ReactMarkdown>
     </MentionChannelContext.Provider>
   );

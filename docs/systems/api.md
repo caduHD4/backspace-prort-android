@@ -84,9 +84,16 @@ type CheckInviteResponse =
 ## Users (`routes/users.ts`) — auth required
 ```
 GET    /users/@me                                        → { user }
-PATCH  /users/@me             { displayName?, avatar?, banner?, accentColor?, avatarColor?,
+PATCH  /users/@me             { displayName?, avatar?, banner?, avatarCrop?, bannerCrop?, accentColor?, avatarColor?,
                                 bio?, customStatus?, status?, replicatedInstances?, homeUserId?,
                                 profileUpdatedAt?, discoverable?, showActivity? } → { user }
+                              avatarCrop / bannerCrop: { x, y, width, height } in the pixels of one frame.
+                              With avatar / banner naming the caller's own unattached GIF upload, the
+                              server crops every frame (sharp), scales the result to fit 256x256
+                              (avatar) or 1280x720 (banner), stores it as a new GIF and deletes the
+                              upload. 400 validation_failed: not whole non-negative numbers, no
+                              avatar / banner alongside, not a .gif, a region outside the image or a
+                              GIF over the decode limits; 403 forbidden: not the caller's upload.
 POST   /users/@me/verify-password  { password }          → { valid }
 POST   /users/@me/change-password  { currentPassword?, newPassword } → { token }
 DELETE /users/@me             { password, username }      → { success }
@@ -194,7 +201,7 @@ DELETE /categories/:id/overrides/:tt/:tid  ?version=        → { success }  [MA
 ## Messages (`routes/messages.ts`) — auth required
 ```
 GET    /channels/:id/messages  ?before=|after=&limit=50 (1-100) → MessageWithUser[]  [VIEW_CHANNEL+READ_MESSAGE_HISTORY]
-POST   /channels/:id/messages  { content, attachments?, replyToId? } → { message }  [SEND_MESSAGES, +ATTACH_FILES, +MENTION_EVERYONE]
+POST   /channels/:id/messages  { content, attachments?, spoilerAttachments?, replyToId? } → { message }  [SEND_MESSAGES, +ATTACH_FILES, +MENTION_EVERYONE]
 PATCH  /messages/:id           { content }                → { message }  [author, +MENTION_EVERYONE]
 DELETE /messages/:id                                      → { success }  [author|MANAGE_MESSAGES]
 ```
@@ -234,7 +241,7 @@ DELETE /dm/:id/members/:targetUserId  ?homeInstance=                → { succes
 POST   /dm/:id/transfer        { newOwnerId? | (homeUserId+homeInstance) } → { success } [owner; group only; resolved member must be in channel; not self]
 POST   /dm/space-invite        { target: { userId } | { homeUserId, homeInstance }, spaceId, spaceInstanceOrigin, inviteCode } → SpaceInviteResponse { dmChannelId, messageId, message } [target must be a friend; 400 invite_invalid when the snapshot would not make a well-formed invite (dm-system.md, "System messages"); a space of any visibility, `request` included (refused up to 1.9.0 with 403 space_requires_approval)]
 GET    /dm/:id/messages        ?before=|after=&limit=50 (1-100)     → DmMessageWithUser[] [member]
-POST   /dm/:id/messages        { content?, attachments?, replyToId? } → 201 DmMessageWithUser [member; content or attachments required]
+POST   /dm/:id/messages        { content?, attachments?, spoilerAttachments?, replyToId? } → 201 DmMessageWithUser [member; content or attachments required]
 PATCH  /dm/messages/:id        { content }                          → DmMessageWithUser [member and author; 403 not_dm_member after leaving the group; 403 system_message_immutable for a system message]
 DELETE /dm/messages/:id                                             → { success } [member and author; 403 not_dm_member after leaving the group]
 ```
@@ -405,10 +412,14 @@ GET   /settings/streaming    (auth)        → { streamingLimits }
 PATCH /settings/streaming    (admin)       → { streamingLimits }
 GET   /settings/instance     (admin)       → { instanceName, registrationOpen, federatedRegistrationOpen, discoveryEnabled,
                                                directoryEnabled, directoryBrowseEnabled, directoryLastPingAt,
-                                               directoryLastError, directoryListedSpaceCount, supportCardEnabled, ... }
+                                               directoryLastError, directoryListedSpaceCount, supportCardEnabled,
+                                               diskCleanupEnabled, diskCleanupThresholdPercent,
+                                               diskCleanupTargetPercent, diskCleanupMinAgeDays, ... }
 PATCH /settings/instance     (admin)       { instanceName?, registrationOpen?, federatedRegistrationOpen?,
                                              discoveryEnabled?, directoryEnabled?, directoryBrowseEnabled?,
                                              supportCardEnabled?,
+                                             diskCleanupEnabled?, diskCleanupThresholdPercent?,
+                                             diskCleanupTargetPercent?, diskCleanupMinAgeDays?,
                                              gifApiKey?, maxUploadSizeMb?,
                                              federationRelayEnabled?, federationRelayTtlDays? } → { settings }
 ```
@@ -441,6 +452,8 @@ Errors: `400 validation_failed` (no known field, or a value of the wrong kind), 
 ## Admin (`routes/admin.ts`) — admin required
 ```
 GET    /admin/storage/stats                                → StorageStats
+GET    /admin/storage/disk                                 → DiskPressureStatus
+POST   /admin/storage/disk/sweep                           → { run: DiskPressureRun | null, status: DiskPressureStatus } (409 `disk_cleanup_disabled` while the feature is off)
 GET    /admin/storage/orphans                              → { orphans[] }
 POST   /admin/storage/cleanup        { dryRun? }           → CleanupResult
 POST   /admin/storage/cleanup-media  { maxAgeDays, dryRun? } → CleanupResult

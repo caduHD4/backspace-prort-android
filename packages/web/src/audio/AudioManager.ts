@@ -2,6 +2,13 @@ import { RnnoiseWorkletNode, loadRnnoise } from '@sapphi-red/web-noise-suppresso
 import rnnoiseWorkletPath from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url';
 import rnnoiseWasmPath from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
 import rnnoiseWasmSimdPath from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
+import { VoiceGate, rmsToDb, type VoiceGateSettings } from './voiceGate';
+
+/** How often the voice gate reads the microphone level. */
+const GATE_POLL_MS = 20;
+/** Gain ramps of the gate: fast to open so a word is not clipped, slower to close so it does not click. */
+const GATE_OPEN_TIME_CONSTANT = 0.004;
+const GATE_CLOSE_TIME_CONSTANT = 0.05;
 
 export class AudioManager {
   private static instance: AudioManager | null = null;
@@ -11,6 +18,15 @@ export class AudioManager {
   private inputDestination: MediaStreamAudioDestinationNode | null = null;
   private silentGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
+  // The gate sits between the input gain and the published track: gateGain is 1
+  // while the voice gate is open and 0 while it is closed. gateAnalyser reads
+  // the same signal the track would carry, before the gate.
+  private gateGain: GainNode | null = null;
+  private gateAnalyser: AnalyserNode | null = null;
+  private gateBuffer: Float32Array<ArrayBuffer> | null = null;
+  private gateTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly voiceGate = new VoiceGate();
+  private inputLevelDb = -100;
   private masterCompressor: DynamicsCompressorNode | null = null;
   private masterBoost: GainNode | null = null;
   
@@ -101,7 +117,14 @@ export class AudioManager {
     this.masterBoost.connect(this.masterCompressor);
     this.masterCompressor.connect(this.ctx.destination);
 
-    this.inputGain.connect(this.inputDestination);
+    this.gateGain = this.ctx.createGain();
+    this.gateGain.gain.value = 0;
+    this.gateAnalyser = this.ctx.createAnalyser();
+    this.gateAnalyser.fftSize = 1024;
+    this.gateBuffer = new Float32Array(this.gateAnalyser.fftSize);
+    this.inputGain.connect(this.gateGain);
+    this.gateGain.connect(this.inputDestination);
+    this.inputGain.connect(this.gateAnalyser);
     this.inputGain.connect(this.analyser);
     this.inputGain.connect(this.silentGain);
     this.silentGain.connect(this.ctx.destination);
@@ -128,6 +151,7 @@ export class AudioManager {
     };
 
     this.isInitialized = true;
+    this.startVoiceGate();
 
     // Apply pending output device selection (user preference loaded before context creation)
     this.applyOutputDevice();
@@ -333,6 +357,8 @@ export class AudioManager {
         }
         this.inputSource = this.ctx.createMediaStreamSource(this.currentStream);
         this.inputSource.connect(this.getInputTarget());
+        // A different microphone has a different noise floor.
+        this.voiceGate.reset();
       }
 
       return this.currentStream;
@@ -555,6 +581,41 @@ export class AudioManager {
     const track = this.inputDestination!.stream.getAudioTracks()[0];
     if (!track) return null;
     return track.clone();
+  }
+
+  /**
+   * Sets how the voice gate decides what is speech: automatically from the
+   * noise of the room, or from a sensitivity of 0 to 100 (100 is the most
+   * sensitive). Takes effect on the next reading.
+   */
+  setVoiceGate(settings: VoiceGateSettings): void {
+    this.voiceGate.configure(settings);
+  }
+
+  /** The gate's state for the meter: the mic level, the threshold and whether the gate is open. */
+  getVoiceGateState(): { levelDb: number; thresholdDb: number; open: boolean } {
+    return { levelDb: this.inputLevelDb, thresholdDb: this.voiceGate.thresholdDb, open: this.voiceGate.isOpen };
+  }
+
+  /** Whether what the microphone hears is being sent. False means the gate has the voice muted. */
+  isVoiceGateOpen(): boolean {
+    return this.voiceGate.isOpen;
+  }
+
+  private startVoiceGate(): void {
+    if (this.gateTimer !== null) return;
+    this.gateTimer = setInterval(() => this.pollVoiceGate(), GATE_POLL_MS);
+  }
+
+  private pollVoiceGate(): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.gateAnalyser || !this.gateBuffer || !this.gateGain) return;
+    this.gateAnalyser.getFloatTimeDomainData(this.gateBuffer);
+    let sumSquares = 0;
+    for (let i = 0; i < this.gateBuffer.length; i++) sumSquares += this.gateBuffer[i]! * this.gateBuffer[i]!;
+    this.inputLevelDb = rmsToDb(Math.sqrt(sumSquares / this.gateBuffer.length));
+    const open = this.voiceGate.update(this.inputLevelDb, performance.now());
+    this.gateGain.gain.setTargetAtTime(open ? 1 : 0, ctx.currentTime, open ? GATE_OPEN_TIME_CONSTANT : GATE_CLOSE_TIME_CONSTANT);
   }
 
   getAnalyserNode(): AnalyserNode {

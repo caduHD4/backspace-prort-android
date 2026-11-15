@@ -1,5 +1,5 @@
 {
-"attentionMutes": {
+  "attentionMutes": {
     "title": "Pessoas silenciadas",
     "description": "Silencie sons, animações e avisos de atenção de pessoas específicas neste dispositivo. Mensagens e chamadas continuam disponíveis.",
     "mute": "Silenciar chamadas de atenção",
@@ -28,6 +28,10 @@
   "theme": {
     "label": "Tema",
     "description": "Escolha a aparência do Backspace. Salvo neste navegador ou app, neste dispositivo.",
+    "msnFrames": {
+      "label": "Bordas do Windows XP",
+      "description": "Bordas azuis chanfradas nas janelas, como no Windows XP."
+    },
     "options": {
       "aether-drift": {
         "name": "Aether Drift",
@@ -44,6 +48,14 @@
       "anime": {
         "name": "Anime",
         "description": "Índigo crepuscular com detalhes em rosa sakura."
+      },
+      "msn": {
+        "name": "MSN",
+        "description": "Azul claro do Live Messenger com botões brilhantes e fonte Segoe."
+      },
+      "msn-dark": {
+        "name": "MSN Escuro",
+        "description": "Azul do Live Messenger sobre marinho profundo, com botões brilhantes."
       }
     }
   },
@@ -75,6 +87,14 @@
       },
       "meter": {
         "hint": "O medidor de nível é ativado quando você entra em um canal de voz."
+      },
+      "sensitivity": {
+        "label": "Sensibilidade de entrada",
+        "auto": "Determinar a sensibilidade de entrada automaticamente",
+        "lower": "Menos sensível",
+        "higher": "Mais sensível",
+        "hintAuto": "O Backspace acompanha o ruído do ambiente e envia sua voz quando você fala acima dele. Desative para ajustar você mesmo.",
+        "hintManual": "Sua voz é enviada quando as barras passam da marca branca. Arraste o controle até a marca ficar logo acima do ruído quando você está em silêncio."
       }
     },
     "output": {
@@ -385,6 +405,10 @@
         "dragHandle": "Arraste {{name}} para mudar a prioridade",
         "manualNameLabel": "Nome de {{name}}",
         "save": "Salvar"
+      },
+      "hideBrowserMedia": {
+        "label": "Ocultar players de navegador",
+        "description": "Abas tocando no Chrome, Firefox, Edge e outros navegadores (um vídeo do YouTube, um player web) não aparecem como ouvindo ou assistindo."
       }
     }
   },

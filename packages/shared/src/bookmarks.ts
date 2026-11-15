@@ -36,6 +36,8 @@ export interface BookmarkAttachment {
   height: number | null;
   duration: number | null;
   playable: boolean | null;
+  /** The sender marked the file as a spoiler; clients draw it blurred until clicked. */
+  spoiler: boolean;
   state: BookmarkAttachmentState;
   /** The file to draw: the bookmark's own copy when it has one, else the original's. Null when `state` is `gone`. */
   filename: string | null;

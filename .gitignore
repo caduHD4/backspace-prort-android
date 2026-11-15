@@ -143,3 +143,11 @@ Backspace-rich-presence-test.sh
 # Local test environment (scripts/testenv.sh) and Playwright MCP output
 .testenv/
 .playwright-mcp/
+
+# Private keys and server credentials: never commit these
+root@*
+*chave*privada*
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*

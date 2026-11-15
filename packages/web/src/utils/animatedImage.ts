@@ -43,6 +43,13 @@ function nameExtension(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
 }
 
+/** Whether `file` is a GIF, by MIME type or, when the browser gave none, by extension. */
+export function isGifFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (mime === 'image/gif') return true;
+  return (!mime || mime === 'application/octet-stream') && nameExtension(file.name) === 'gif';
+}
+
 /**
  * Whether `file` carries more than one frame.
  *

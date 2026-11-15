@@ -420,6 +420,7 @@ export function queueDmRelay(
     height: a.height ?? undefined,
     duration: a.duration ?? undefined,
     playable: a.playable ?? null,
+    spoiler: a.spoiler ?? false,
     thumbnailFilename: a.thumbnailFilename ?? undefined,
     sourceUrl: `${domainOrigin}/api/uploads/${a.filename}`,
   }));

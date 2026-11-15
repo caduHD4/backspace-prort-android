@@ -464,3 +464,15 @@ These are accepted constraints of the current deploy model, documented so operat
 | Restore a snapshot | `./restore.sh <snapshot-filename>` |
 | Rotate legacy seed admin | `docker exec -w /app/packages/server backspace node --import tsx/esm src/scripts/remediate-seed-admin.ts` |
 | Grant first admin (fresh instance) | Register the first account; it becomes admin automatically. |
+
+
+## Automatic deploys and failed builds
+
+A host that deploys through Coolify builds the image from the Dockerfile on every push to `main`. The deploy runs in parallel with CI, so a push that does not build leaves the **old version running** while the new build fails: nothing looks broken until someone reads the deployment log (Coolify, application, Deployments).
+
+What has failed this way, and where to look first:
+
+- **A file the web build reads is not in the image.** The Dockerfile copies paths one at a time and `.dockerignore` removes most of `packages/desktop/`. A web import from the desktop package (`desktop/resources/...`) needs its own `!` line in `.dockerignore`, as `nudge-msn` has.
+- **The localization check fails.** The web build runs `scripts/check-i18n.mjs` first (not `scripts/i18n/check.mjs`). A new literal in JSX needs a translation key, or `// i18n-check: allow-literal` on the line before it for a glyph; a word that is the same in every language goes in `scripts/i18n-allowlist.json`.
+
+The repository ships a `pre-push` hook (`.githooks/pre-push`) that runs the localization check, `pnpm build` and `pnpm lint` before a push. Enable it once per clone with `git config core.hooksPath .githooks`; bypass it with `git push --no-verify`. CI's `Build container image` job builds the same Dockerfile on every push, but it cannot stop a deploy that has already started.

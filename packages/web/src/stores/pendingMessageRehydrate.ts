@@ -3,6 +3,7 @@ import { useTransferStore } from './transferStore';
 import { useUIStore } from './uiStore';
 import { getApiForOrigin, getChannelOrigin, getChannelKind, useSpaceStore } from './spaceStore';
 import { HttpError, RateLimitError } from '../api/client';
+import { canBeSpoiler } from '@backspace/shared/src/constants';
 
 let started = false;
 
@@ -169,6 +170,13 @@ async function deferredSend(b: PendingBubble, attempt = 0): Promise<void> {
   const attachmentIds = b.transferIds
     .map((tid) => transfers.get(tid)?.attachmentId)
     .filter((id): id is string => Boolean(id));
+  // The files the sender marked as spoilers, by the id the server gave them.
+  const spoilerAttachments = b.transferIds.flatMap((tid) => {
+    const transfer = transfers.get(tid);
+    return transfer?.spoiler && transfer.attachmentId && canBeSpoiler(transfer.file.mimetype)
+      ? [transfer.attachmentId]
+      : [];
+  });
 
   let client;
   let isDm: boolean;
@@ -187,12 +195,14 @@ async function deferredSend(b: PendingBubble, attempt = 0): Promise<void> {
       await client.dm.sendMessage(b.channelId, {
         content: b.content,
         attachments: attachmentIds,
+        spoilerAttachments,
         replyToId: b.replyToId ?? undefined,
       });
     } else {
       await client.channels.sendMessage(b.channelId, {
         content: b.content,
         attachments: attachmentIds,
+        spoilerAttachments,
         replyToId: b.replyToId ?? undefined,
       });
     }
