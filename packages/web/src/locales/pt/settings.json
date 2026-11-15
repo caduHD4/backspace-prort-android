@@ -87,6 +87,14 @@
       },
       "meter": {
         "hint": "O medidor de nível é ativado quando você entra em um canal de voz."
+      },
+      "sensitivity": {
+        "label": "Sensibilidade de entrada",
+        "auto": "Determinar a sensibilidade de entrada automaticamente",
+        "lower": "Menos sensível",
+        "higher": "Mais sensível",
+        "hintAuto": "O Backspace acompanha o ruído do ambiente e envia sua voz quando você fala acima dele. Desative para ajustar você mesmo.",
+        "hintManual": "Sua voz é enviada quando as barras passam da marca branca. Arraste o controle até a marca ficar logo acima do ruído quando você está em silêncio."
       }
     },
     "output": {

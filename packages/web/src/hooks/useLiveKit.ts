@@ -663,6 +663,8 @@ export function useLiveKit() {
         }
         if (!isCurrentRoom()) return;
         audioManager.setInputVolume(inputVolume);
+        const { inputSensitivityAuto, inputSensitivity } = useVoiceStore.getState();
+        audioManager.setVoiceGate({ auto: inputSensitivityAuto, sensitivity: inputSensitivity });
         await republishMicrophone(r, lastMicGenRef);
       } catch (err) {
         console.error('[LiveKit] Failed to sync mic state:', err);

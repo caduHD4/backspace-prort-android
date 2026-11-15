@@ -4,6 +4,8 @@ import { useVoiceStore } from '../../../stores/voiceStore';
 import { AudioManager } from '../../../audio/AudioManager';
 import { useAudioDevices } from '../../../hooks/useAudioDevices';
 import { SectionShell, DropdownItem } from './_shared/SettingsPickerPrimitives';
+import { Toggle } from '../../ui/Toggle';
+import { dbToMeterFraction } from '../../../audio/voiceGate';
 
 export function AudioInputSection() {
   const { t } = useTranslation(['settings', 'common']);
@@ -11,10 +13,15 @@ export function AudioInputSection() {
   const setInputDevice = useVoiceStore((s) => s.setInputDevice);
   const inputVolume = useVoiceStore((s) => s.inputVolume);
   const setInputVolume = useVoiceStore((s) => s.setInputVolume);
+  const sensitivityAuto = useVoiceStore((s) => s.inputSensitivityAuto);
+  const setSensitivityAuto = useVoiceStore((s) => s.setInputSensitivityAuto);
+  const sensitivity = useVoiceStore((s) => s.inputSensitivity);
+  const setSensitivity = useVoiceStore((s) => s.setInputSensitivity);
   const { permState, inputs, inputLabels, requestPermission } = useAudioDevices();
 
   const [listOpen, setListOpen] = useState(false);
-  const [micLevel, setMicLevel] = useState(0);
+  // What the voice gate reads from the microphone: the level, the level that opens it, and whether it is open.
+  const [gate, setGate] = useState({ levelDb: -100, thresholdDb: -45, open: false });
   const [activeUpstreamId, setActiveUpstreamId] = useState<string | null>(null);
   // Bumped whenever AudioManager's AudioContext transitions to 'running'.
   // Used as a dep on effects that need to re-run once the context exists —
@@ -54,24 +61,20 @@ export function AudioInputSection() {
     return () => { unsubscribe(); };
   }, [permState]);
 
-  // Live mic-level meter. Reuses AudioManager's analyser node, which is part
-  // of the canonical pipeline — no extra getUserMedia required once the user
-  // is in voice. Re-runs on `audioCtxGen` bumps so the meter activates after
-  // the AudioContext appears mid-session.
+  // Live mic-level meter. Reads the voice gate's own measurement, the one
+  // that decides what is sent, so the bars and the threshold mark agree with
+  // what the gate does. No extra getUserMedia is needed once the user is in
+  // voice. Re-runs on `audioCtxGen` bumps so the meter activates after the
+  // AudioContext appears mid-session.
   useEffect(() => {
     if (permState !== 'granted') return;
     let stopped = false;
     const am = AudioManager.getInstance();
     const ctx = am.getContext();
     if (!ctx) return; // nothing to measure until the user joins voice or hits Test
-    const analyser = am.getAnalyserNode();
-    analyser.fftSize = 256;
-    const data = new Uint8Array(analyser.frequencyBinCount);
     const tick = () => {
       if (stopped) return;
-      analyser.getByteFrequencyData(data);
-      const avg = data.reduce((a, b) => a + b, 0) / data.length;
-      setMicLevel(Math.min(avg / 128, 1));
+      setGate(am.getVoiceGateState());
       animFrameRef.current = requestAnimationFrame(tick);
     };
     tick();
@@ -152,7 +155,8 @@ export function AudioInputSection() {
   };
 
   const micBars = 20;
-  const activeBars = Math.round(micLevel * micBars * (inputVolume / 100));
+  const activeBars = Math.round(dbToMeterFraction(gate.levelDb) * micBars);
+  const thresholdPercent = dbToMeterFraction(gate.thresholdDb) * 100;
 
   return (
     <SectionShell title={t('voice.input.title')}>
@@ -206,18 +210,60 @@ export function AudioInputSection() {
               background: `linear-gradient(to right, rgb(var(--accent-primary)) 0%, rgb(var(--accent-primary)) ${inputVolume / 2}%, rgb(var(--interactive-muted)) ${inputVolume / 2}%, rgb(var(--interactive-muted)) 100%)`,
             }}
           />
-          <div className="flex items-center gap-[3px] mt-2">
-            {Array.from({ length: micBars }).map((_, i) => (
-              <div
-                key={i}
-                className={`flex-1 h-[6px] rounded-[1px] transition-colors duration-75 ${
-                  i < activeBars ? 'bg-status-online' : 'bg-interactive-muted'
-                }`}
-              />
-            ))}
-          </div>
           <div className="text-xs text-txt-tertiary mt-1.5">
             {t('voice.input.meter.hint')}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-ui-label font-medium text-txt-primary">{t('voice.input.sensitivity.label')}</div>
+          <div className="flex items-center justify-between gap-3 mt-1.5">
+            <span className="text-ui-label text-txt-secondary min-w-0">{t('voice.input.sensitivity.auto')}</span>
+            <Toggle
+              enabled={sensitivityAuto}
+              onChange={setSensitivityAuto}
+              ariaLabel={t('voice.input.sensitivity.auto')}
+            />
+          </div>
+
+          {/* The meter shows the level the gate reads; the mark is where it opens. */}
+          <div className="relative mt-2">
+            <div className="flex items-center gap-[3px]" aria-hidden="true">
+              {Array.from({ length: micBars }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 h-[6px] rounded-[1px] transition-colors duration-75 ${
+                    i < activeBars ? (gate.open ? 'bg-status-online' : 'bg-accent-amber') : 'bg-interactive-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            <div
+              aria-hidden="true"
+              className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-txt-primary pointer-events-none"
+              style={{ left: `calc(${thresholdPercent}% - 1px)` }}
+            />
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={sensitivity}
+            disabled={sensitivityAuto}
+            aria-label={t('voice.input.sensitivity.label')}
+            onChange={(e) => setSensitivity(Number(e.target.value))}
+            className={`ui-range mt-3 ${sensitivityAuto ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{
+              background: `linear-gradient(to right, rgb(var(--accent-primary)) 0%, rgb(var(--accent-primary)) ${sensitivity}%, rgb(var(--interactive-muted)) ${sensitivity}%, rgb(var(--interactive-muted)) 100%)`,
+            }}
+          />
+          <div className="flex items-center justify-between text-xs text-txt-tertiary mt-1">
+            <span>{t('voice.input.sensitivity.lower')}</span>
+            <span>{t('voice.input.sensitivity.higher')}</span>
+          </div>
+          <div className="text-xs text-txt-tertiary mt-1.5">
+            {sensitivityAuto ? t('voice.input.sensitivity.hintAuto') : t('voice.input.sensitivity.hintManual')}
           </div>
         </div>
       </div>

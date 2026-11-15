@@ -189,10 +189,16 @@ export class SpeakingDetector {
         // Muted or deafened → never speaking, reset hold counter
         this.holdCounters.delete(this.localIdentity);
       } else {
-        const analyser = AudioManager.getInstance().getAnalyserNode();
-        const rms = this.computeRMS(analyser);
-        if (this.applyHysteresis(this.localIdentity, rms)) {
-          speakingIds.add(this.localIdentity);
+        const audio = AudioManager.getInstance();
+        if (!audio.isVoiceGateOpen()) {
+          // The voice gate is not sending the microphone, so nobody hears
+          // this speaker: the indicator must not claim otherwise.
+          this.holdCounters.delete(this.localIdentity);
+        } else {
+          const rms = this.computeRMS(audio.getAnalyserNode());
+          if (this.applyHysteresis(this.localIdentity, rms)) {
+            speakingIds.add(this.localIdentity);
+          }
         }
       }
     }

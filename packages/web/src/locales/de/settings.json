@@ -87,6 +87,14 @@
       },
       "meter": {
         "hint": "Die Pegelanzeige wird aktiv, sobald du einem Sprachkanal beitrittst."
+      },
+      "sensitivity": {
+        "label": "Eingabeempfindlichkeit",
+        "auto": "Eingabeempfindlichkeit automatisch bestimmen",
+        "lower": "Weniger empfindlich",
+        "higher": "Empfindlicher",
+        "hintAuto": "Backspace folgt dem Geräuschpegel des Raums und sendet deine Stimme, wenn du lauter sprichst. Schalte das aus, um es selbst einzustellen.",
+        "hintManual": "Deine Stimme wird gesendet, wenn die Balken die weiße Markierung überschreiten. Ziehe den Regler, bis die Markierung knapp über dem Rauschen liegt, wenn du still bist."
       }
     },
     "output": {

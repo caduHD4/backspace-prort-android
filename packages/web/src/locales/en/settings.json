@@ -87,6 +87,14 @@
       },
       "meter": {
         "hint": "The level meter activates once you join a voice channel."
+      },
+      "sensitivity": {
+        "label": "Input sensitivity",
+        "auto": "Automatically determine input sensitivity",
+        "lower": "Less sensitive",
+        "higher": "More sensitive",
+        "hintAuto": "Backspace follows the noise of the room and sends your voice when you speak above it. Turn this off to set it yourself.",
+        "hintManual": "Your voice is sent when the bars pass the white mark. Drag the slider until the mark sits just above the noise when you are quiet."
       }
     },
     "output": {
