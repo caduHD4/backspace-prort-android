@@ -115,7 +115,9 @@
     "backToGrid": "Zurück zur Rasteransicht",
     "gridButton": "Raster",
     "showMembers": "Mitglieder anzeigen",
-    "hideMembers": "Mitglieder ausblenden"
+    "hideMembers": "Mitglieder ausblenden",
+    "streamsOnly": "Nur Übertragungen anzeigen",
+    "noStreams": "Niemand überträgt gerade"
   },
   "connectionInfo": {
     "title": "Verbindungsinfo",

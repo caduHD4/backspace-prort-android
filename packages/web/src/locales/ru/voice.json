@@ -117,7 +117,9 @@
     "backToGrid": "Вернуться к сетке",
     "gridButton": "Сетка",
     "showMembers": "Показать участников",
-    "hideMembers": "Скрыть участников"
+    "hideMembers": "Скрыть участников",
+    "streamsOnly": "Показывать только трансляции",
+    "noStreams": "Сейчас никто не транслирует"
   },
   "connectionInfo": {
     "title": "Сведения о соединении",

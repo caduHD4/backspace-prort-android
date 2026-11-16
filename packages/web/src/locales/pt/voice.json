@@ -116,7 +116,9 @@
     "backToGrid": "Voltar à visualização em grade",
     "gridButton": "Grade",
     "showMembers": "Mostrar membros",
-    "hideMembers": "Ocultar membros"
+    "hideMembers": "Ocultar membros",
+    "streamsOnly": "Mostrar apenas transmissões",
+    "noStreams": "Ninguém está transmitindo"
   },
   "connectionInfo": {
     "title": "Informações da conexão",

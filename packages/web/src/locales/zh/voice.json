@@ -114,7 +114,9 @@
     "backToGrid": "返回网格视图",
     "gridButton": "网格",
     "showMembers": "显示成员",
-    "hideMembers": "隐藏成员"
+    "hideMembers": "隐藏成员",
+    "streamsOnly": "仅显示直播",
+    "noStreams": "当前没有人在直播"
   },
   "connectionInfo": {
     "title": "连接信息",

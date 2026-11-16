@@ -605,6 +605,8 @@ Viewers: `TrackPublished` subscribes a `ScreenShareAudio` publication when the v
 
 ## Mobile Voice Rendering
 
+**Streams-only filter:** right-clicking the grid itself (empty space; user and stream tiles open their own menus and stop the event first) shows a "Show only streams" checkbox backed by `voiceStore.streamsOnly` (persisted in `backspace-voice-settings`, default `false`). While on, `VoiceGrid` drops every `kind: 'user'` tile before layout, so the focus strip and the grid only hold stream tiles; a focused person tile is unfocused, and with nobody streaming the grid says so instead of "waiting for others" and keeps the menu reachable. Audio and subscriptions are untouched: it is a view filter.
+
 Mobile (`MobileVoiceFullScreen`) renders the **same** `VoiceGrid` component as desktop. There is no mobile-specific tile component — the rendering, attach/detach, adaptive-stream subscription, focused-publisher layout, and context menus all come from the shared `VoiceGrid` / `VoiceUser` / `StreamTile` pipeline. The only mobile-specific addition is auto-focus on the first live screen-share publication (so phone users don't have to discover tap-to-focus).
 
 See `docs/systems/mobile-ui.md` → "MobileVoiceFullScreen" for the auto-focus state machine, control-bar wiring, and layout sizing.

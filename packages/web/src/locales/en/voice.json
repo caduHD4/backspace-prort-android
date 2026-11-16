@@ -115,7 +115,9 @@
     "backToGrid": "Back to grid view",
     "gridButton": "Grid",
     "showMembers": "Show Members",
-    "hideMembers": "Hide Members"
+    "hideMembers": "Hide Members",
+    "streamsOnly": "Show only streams",
+    "noStreams": "No one is streaming"
   },
   "connectionInfo": {
     "title": "Connection Info",

@@ -195,6 +195,9 @@ export interface VoiceState {
   setMessageSoundAllChannels: (allChannels: boolean) => void;
   pipEnabled: boolean;                       // true (default) = floating window shows while browsing other channels
   setPipEnabled: (enabled: boolean) => void;
+  /** Call grid shows only screen-share tiles; people without a stream are hidden. Persisted. */
+  streamsOnly: boolean;
+  setStreamsOnly: (enabled: boolean) => void;
   streamAttenuationEnabled: boolean;        // global toggle, default true
   streamAttenuationStrength: number;        // 0-100, default 50
   setStreamVolume: (userId: string, volume: number) => void;
@@ -460,6 +463,8 @@ export const useVoiceStore = create<VoiceState>()(
           return mutated ? { streamWatchers: newMap } : state;
         });
       },
+      streamsOnly: false,
+      setStreamsOnly: (enabled) => set({ streamsOnly: enabled }),
       streamAttenuationEnabled: false,
       streamAttenuationStrength: 50,
 
@@ -1078,6 +1083,7 @@ export const useVoiceStore = create<VoiceState>()(
         textVoiceMonitor: state.textVoiceMonitor,
         messageSoundAllChannels: state.messageSoundAllChannels,
         pipEnabled: state.pipEnabled,
+        streamsOnly: state.streamsOnly,
         streamAttenuationEnabled: state.streamAttenuationEnabled,
         streamAttenuationStrength: state.streamAttenuationStrength,
         // Per-user preferences (Map → plain object for JSON)

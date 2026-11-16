@@ -1,5 +1,5 @@
 import { Tooltip } from '../ui/Tooltip';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VoiceUser } from './VoiceUser';
 import { StreamTile } from './StreamTile';
@@ -9,6 +9,7 @@ import { useGridLayout } from '../../hooks/useGridLayout';
 import type { ParticipantInfo, GridTile } from '../../hooks/useLiveKit';
 import { useTrackStats } from '../../hooks/useTrackStats';
 import { VOICE_CHROME_ATTR } from '../../hooks/usePointerReveal';
+import { useContextMenuStore } from '../../stores/contextMenuStore';
 
 interface VoiceGridProps {
   participants: ParticipantInfo[];
@@ -22,9 +23,34 @@ export function VoiceGrid({ participants, fullscreen = false, chromeRevealed = f
   const focusedParticipantId = useVoiceStore((s) => s.focusedParticipantId);
   const setFocusedParticipant = useVoiceStore((s) => s.setFocusedParticipant);
   const watchingStreams = useVoiceStore((s) => s.watchingStreams);
+  const streamsOnly = useVoiceStore((s) => s.streamsOnly);
+  const openContextMenu = useContextMenuStore((s) => s.open);
   const [stripHidden, setStripHidden] = useState(false);
 
-  const tiles = useMemo(() => deriveGridTiles(participants), [participants]);
+  const allTiles = useMemo(() => deriveGridTiles(participants), [participants]);
+  const tiles = useMemo(
+    () => (streamsOnly ? allTiles.filter((tile) => tile.kind === 'stream') : allTiles),
+    [allTiles, streamsOnly],
+  );
+
+  // Right-click on the grid itself (empty space, or a tile that has no menu of
+  // its own: user and stream tiles open theirs and stop the event first).
+  const handleGridContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      openContextMenu({ x: e.clientX, y: e.clientY }, [
+        {
+          key: 'streams-only',
+          type: 'checkbox',
+          label: t('voice:grid.streamsOnly'),
+          subscribe: useVoiceStore.subscribe,
+          getChecked: () => useVoiceStore.getState().streamsOnly,
+          onChange: (checked) => useVoiceStore.getState().setStreamsOnly(checked),
+        },
+      ]);
+    },
+    [openContextMenu, t],
+  );
   const shouldCollectStreamStats = tiles.some((tile) =>
     tile.kind === 'stream'
     && (tile.participant.isLocal || watchingStreams.has(tile.participant.userId)),
@@ -57,12 +83,18 @@ export function VoiceGrid({ participants, fullscreen = false, chromeRevealed = f
       !currentStreamKeys.has(focusedParticipantId)
     ) {
       setFocusedParticipant(null);
+      return;
+    }
+
+    // Turning "streams only" on hides person tiles: a focused one is gone.
+    if (focusedParticipantId && !tiles.some((tile) => tile.key === focusedParticipantId)) {
+      setFocusedParticipant(null);
     }
   }, [tiles, focusedParticipantId, setFocusedParticipant]);
 
   if (tiles.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center" onContextMenu={handleGridContextMenu}>
         <div className="text-center">
           <svg
             width="48"
@@ -74,7 +106,9 @@ export function VoiceGrid({ participants, fullscreen = false, chromeRevealed = f
             <path d="M11 5L6 9H2V15H6L11 19V5ZM15.54 8.46C16.48 9.4 17 10.67 17 12S16.48 14.6 15.54 15.54L14.12 14.12C14.69 13.55 15 12.79 15 12S14.69 10.45 14.12 9.88L15.54 8.46Z" />
           </svg>
           <p className="text-txt-tertiary text-sm">
-            {t('voice:grid.waitingForOthers')}
+            {streamsOnly && allTiles.length > 0
+              ? t('voice:grid.noStreams')
+              : t('voice:grid.waitingForOthers')}
           </p>
         </div>
       </div>
@@ -98,7 +132,7 @@ export function VoiceGrid({ participants, fullscreen = false, chromeRevealed = f
   if (focusedTile) {
     const otherTiles = tiles.filter((t) => t.key !== focusedParticipantId);
     return (
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative" onContextMenu={handleGridContextMenu}>
         {/* Main focused view */}
         <div data-icon-motion="press"
           className={`flex-1 min-h-0 cursor-pointer relative ${immersive ? '' : 'p-2'}`}
@@ -172,7 +206,7 @@ export function VoiceGrid({ participants, fullscreen = false, chromeRevealed = f
 
   // Default grid mode — container-aware layout via ResizeObserver
   return (
-    <div ref={gridRef} className="flex-1 overflow-hidden min-h-0">
+    <div ref={gridRef} className="flex-1 overflow-hidden min-h-0" onContextMenu={handleGridContextMenu}>
       <div
         className="grid h-full w-full"
         style={{
