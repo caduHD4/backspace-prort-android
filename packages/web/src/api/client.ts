@@ -61,6 +61,9 @@ import type {
   OrphanedFile,
   CleanupResult,
   AdminUserListResponse,
+  AdminSpaceListResponse,
+  AdminSpaceDetail,
+  AdminSpaceMessagesResponse,
   AdminUser,
   AdminResetPasswordResponse,
   InstanceUpdateStatus,
@@ -456,6 +459,9 @@ export class BackspaceApiClient {
     cleanupTusSessions: (maxAgeHours: number, dryRun?: boolean) => Promise<CleanupResult>;
     listUsers: (params?: { q?: string; page?: number; pageSize?: number; showDeleted?: boolean; homeInstance?: string; role?: string; joinedAfter?: string; joinedBefore?: string; sort?: string }) => Promise<AdminUserListResponse>;
     listInstances: () => Promise<{ instances: string[] }>;
+    listSpaces: (params?: { q?: string; page?: number; pageSize?: number }) => Promise<AdminSpaceListResponse>;
+    getSpace: (spaceId: string) => Promise<AdminSpaceDetail>;
+    getSpaceMessages: (spaceId: string, channelId: string, params?: { before?: string; limit?: number }) => Promise<AdminSpaceMessagesResponse>;
     setUserRole: (userId: string, isAdmin: boolean) => Promise<AdminUser>;
     resetUserPassword: (userId: string) => Promise<AdminResetPasswordResponse>;
     deleteUser: (userId: string) => Promise<{ success: boolean }>;
@@ -1139,6 +1145,20 @@ export class BackspaceApiClient {
         return request<AdminUserListResponse>('GET', `/admin/users?${qs}`);
       },
       listInstances: () => request<{ instances: string[] }>('GET', '/admin/users/instances'),
+      listSpaces: (params) => {
+        const qs = new URLSearchParams();
+        if (params?.q) qs.set('q', params.q);
+        if (params?.page !== undefined) qs.set('page', String(params.page));
+        if (params?.pageSize !== undefined) qs.set('pageSize', String(params.pageSize));
+        return request<AdminSpaceListResponse>('GET', `/admin/spaces?${qs}`);
+      },
+      getSpace: (spaceId) => request<AdminSpaceDetail>('GET', `/admin/spaces/${encodeURIComponent(spaceId)}`),
+      getSpaceMessages: (spaceId, channelId, params) => {
+        const qs = new URLSearchParams();
+        if (params?.before) qs.set('before', params.before);
+        if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+        return request<AdminSpaceMessagesResponse>('GET', `/admin/spaces/${encodeURIComponent(spaceId)}/channels/${encodeURIComponent(channelId)}/messages?${qs}`);
+      },
       setUserRole: (userId, isAdmin) =>
         request<AdminUser>('PATCH', `/admin/users/${userId}/role`, { isAdmin }),
       resetUserPassword: (userId) =>

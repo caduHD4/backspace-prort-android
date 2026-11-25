@@ -11,10 +11,11 @@ import { FederationPanel } from '../instanceSettingsPanels/FederationPanel';
 import { StreamingPanel } from '../instanceSettingsPanels/StreamingPanel';
 import { StoragePanel } from '../instanceSettingsPanels/StoragePanel';
 import { UsersPanel } from '../instanceSettingsPanels/UsersPanel';
+import { SpacesPanel } from '../instanceSettingsPanels/SpacesPanel';
 import { UpdatesPanel } from '../instanceSettingsPanels/UpdatesPanel';
 import { TelemetryPanel } from '../instanceSettingsPanels/TelemetryPanel';
 
-type SubTab = 'general' | 'registration' | 'federation' | 'streaming' | 'storage' | 'users' | 'updates' | 'telemetry';
+type SubTab = 'general' | 'registration' | 'federation' | 'streaming' | 'storage' | 'users' | 'spaces' | 'updates' | 'telemetry';
 
 export function InstancePanel() {
   const { t } = useTranslation(['settings']);
@@ -36,6 +37,7 @@ export function InstancePanel() {
     { id: 'streaming', icon: 'streaming', label: t('settings:instance.tabs.streaming') },
     { id: 'storage', icon: 'storage', label: t('settings:instance.tabs.storage') },
     { id: 'users', icon: 'users', label: t('settings:instance.tabs.users') },
+    { id: 'spaces', icon: 'spaces', label: t('settings:instance.tabs.spaces') },
     { id: 'updates', icon: 'updates', label: t('settings:instance.tabs.updates'), badgeDot: updateBadge },
     {
       id: 'telemetry',
@@ -74,6 +76,7 @@ export function InstancePanel() {
       {subTab === 'streaming' && <StreamingPanel />}
       {subTab === 'storage' && <StoragePanel />}
       {subTab === 'users' && <UsersPanel />}
+      {subTab === 'spaces' && <SpacesPanel />}
       {subTab === 'updates' && <UpdatesPanel />}
       {subTab === 'telemetry' && <TelemetryPanel />}
     </div>

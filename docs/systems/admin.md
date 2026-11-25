@@ -16,6 +16,8 @@ Source files:
 - `packages/web/src/components/modals/instanceSettingsPanels/StoragePanel.tsx` -- Storage management UI
 - `packages/web/src/components/modals/instanceSettingsPanels/StreamingPanel.tsx` -- Streaming config UI
 - `packages/web/src/components/modals/instanceSettingsPanels/UsersPanel.tsx` -- User management UI
+- `packages/server/src/routes/adminSpaces.ts` -- Read-only view of every space on the instance
+- `packages/web/src/components/modals/instanceSettingsPanels/SpacesPanel.tsx` -- Spaces tab: list, members, channel history
 - `packages/web/src/components/modals/instanceSettingsPanels/UpdatesPanel.tsx` -- Instance version and update guidance UI
 - `packages/web/src/components/modals/instanceSettingsPanels/TelemetryPanel.tsx` -- The daily hello: opt-in switch, state, masked id, live payload preview
 - `packages/server/src/routes/invites.ts` -- Admin invite-link CRUD endpoints
@@ -426,6 +428,22 @@ the 90-day retention at the receiver: [telemetry.md](telemetry.md).
 
 ---
 
+### Space Overview (read-only)
+
+All admin-only. The instance admin can list every space on the instance and look inside any of them without joining. Nothing here writes: the admin gets no `space_members` row, does not appear in the member list, receives no WebSocket events for the space, and is not subject to its permission bits or channel overrides (the admin already holds the database).
+
+```
+GET /api/admin/spaces ?q=&page=&pageSize=                   → AdminSpaceListResponse
+GET /api/admin/spaces/:id                                    → AdminSpaceDetail (members + roles + channels)
+GET /api/admin/spaces/:id/channels/:channelId/messages ?before=&limit= → AdminSpaceMessagesResponse
+```
+
+- The list is newest-first (`createdAt` desc), 30 per page (max 100). `q` matches the space name; `%` and `_` are matched literally. Each row carries `memberCount`, `channelCount` and the owner as an `AdminSpacePerson`.
+- The detail returns each member with `nickname`, `joinedAt`, `isOwner` and their roles (highest position first), plus the channel list. A deleted account is returned anonymised, like `sanitizeUser` does.
+- Messages page newest-first by numeric snowflake: `before` must be digits (`400 validation_failed` otherwise), `limit` 1-100 (default 50), `hasMore` says whether older ones remain. The channel must belong to the space (`404 channel_not_found`); a voice channel returns an empty page. Content is returned as stored; attachments and embeds are not included.
+- Every detail and message read is logged (`admin viewed a space`, `admin read a channel`) with the admin's id and the space/channel id. There is no audit table.
+- Federation: only spaces hosted here exist in this list; remote members appear with their `homeInstance`.
+
 ### User Management
 
 All admin-only.
@@ -816,6 +834,10 @@ Manages: bitrate range (min/max/step), custom bitrate toggle, resolution/framera
 - **Bitrate matrix:** Interactive grid of resolution x framerate cells. Displays in Mbps (stored as kbps). Click to edit. Overridden cells highlighted in accent-primary. Cells exceeding maxBitrateKbps highlighted in amber.
 - **Scale slider:** Multiplies all matrix values by 0.5x-2.0x. Captures snapshot on drag start, applies factor during drag, releases on pointer up.
 - **Save payload:** Only cells differing from defaults are sent as `bitrateMatrixOverrides`; identical-to-default cells are omitted (sparse representation). If no overrides, `null` is sent.
+
+#### SpacesPanel
+
+The "Spaces" tab (`spaces` in `InstancePanel`, `settings-instance-spaces` on mobile). A searchable, paginated list of every space; opening one shows its owner, channels (text channels open a read-only history reader with "load older"; voice channels are disabled) and members with nickname, roles and join date. The panel keeps its state in `useState` (like `UsersPanel`); late replies are dropped with a request counter. Strings live in `admin:spaces.*`.
 
 #### UsersPanel
 

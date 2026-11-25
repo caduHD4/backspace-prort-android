@@ -531,6 +531,45 @@
       "confirm": "Excluir usuário"
     }
   },
+  "spaces": {
+    "title": "Espaços",
+    "description": "Todos os espaços desta instância. Você pode olhar dentro de qualquer um sem entrar: nada aqui altera o espaço e você não aparece na lista de membros dele.",
+    "searchPlaceholder": "Pesquisar espaços…",
+    "loading": "Carregando espaços…",
+    "loadFailed": "Falha ao carregar os espaços",
+    "empty": "Nenhum espaço encontrado",
+    "owner": "Dono: {{name}}",
+    "ownerUnknown": "Dono desconhecido",
+    "created": "Criado em {{date}}",
+    "stats": "{{members}} membros · {{channels}} canais",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "pagination": "Página {{page}} de {{total}}",
+    "visibility": {
+      "public": "Público",
+      "request": "Pedir para entrar",
+      "private": "Privado"
+    },
+    "detail": {
+      "back": "Voltar para todos os espaços",
+      "readOnly": "Somente leitura. Você não é membro deste espaço e nada do que você faz aqui aparece para os membros dele.",
+      "channels": "Canais",
+      "members": "Membros",
+      "noChannels": "Este espaço não tem canais",
+      "noMembers": "Este espaço não tem membros",
+      "selectChannel": "Escolha um canal de texto para ler as mensagens recentes",
+      "voiceChannel": "Canal de voz: não há histórico para ler",
+      "loadOlder": "Carregar mensagens mais antigas",
+      "loadingMessages": "Carregando mensagens…",
+      "noMessages": "Nenhuma mensagem neste canal",
+      "messagesFailed": "Falha ao carregar as mensagens",
+      "loadFailed": "Falha ao carregar este espaço",
+      "edited": "(editada)",
+      "system": "Sistema",
+      "ownerBadge": "Dono",
+      "joined": "Entrou em {{date}}"
+    }
+  },
   "mobile": {
     "title": "Instância",
     "sections": {
@@ -541,6 +580,7 @@
       "storage": "Armazenamento",
       "updates": "Atualizações",
       "users": "Usuários",
+      "spaces": "Espaços",
       "telemetry": "Oi"
     }
   }

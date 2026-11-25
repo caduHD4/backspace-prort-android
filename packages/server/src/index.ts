@@ -33,6 +33,7 @@ import { exploreRoutes } from './routes/explore.js';
 import { directoryRoutes } from './routes/directory.js';
 import { searchRoutes } from './routes/search.js';
 import { adminRoutes } from './routes/admin.js';
+import { adminSpacesRoutes } from './routes/adminSpaces.js';
 import { adminUpdateRoutes } from './routes/adminUpdates.js';
 import { adminTelemetryRoutes } from './routes/adminTelemetry.js';
 import { gifRoutes } from './routes/gif.js';
@@ -281,6 +282,7 @@ async function main(): Promise<void> {
   await app.register(directoryRoutes);
   await app.register(searchRoutes);
   await app.register(adminRoutes);
+  await app.register(adminSpacesRoutes);
   await app.register(adminUpdateRoutes);
   await app.register(adminTelemetryRoutes);
   await app.register(gifRoutes);

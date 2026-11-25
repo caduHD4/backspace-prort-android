@@ -59,6 +59,7 @@ export const FederationPanel = lazyPanel(() => import('./instanceSettingsPanels/
 export const StreamingPanel = lazyPanel(() => import('./instanceSettingsPanels/StreamingPanel'), (m) => m.StreamingPanel);
 export const StoragePanel = lazyPanel(() => import('./instanceSettingsPanels/StoragePanel'), (m) => m.StoragePanel);
 export const UsersPanel = lazyPanel(() => import('./instanceSettingsPanels/UsersPanel'), (m) => m.UsersPanel);
+export const SpacesPanel = lazyPanel(() => import('./instanceSettingsPanels/SpacesPanel'), (m) => m.SpacesPanel);
 export const UpdatesPanel = lazyPanel(() => import('./instanceSettingsPanels/UpdatesPanel'), (m) => m.UpdatesPanel);
 export const TelemetryPanel = lazyPanel(() => import('./instanceSettingsPanels/TelemetryPanel'), (m) => m.TelemetryPanel);
 

@@ -459,6 +459,9 @@ POST   /admin/storage/cleanup        { dryRun? }           → CleanupResult
 POST   /admin/storage/cleanup-media  { maxAgeDays, dryRun? } → CleanupResult
 GET    /admin/users  ?q=&page=&pageSize=&showDeleted=&homeInstance=&role=&joinedAfter=&joinedBefore=&sort= → AdminUserListResponse
 GET    /admin/users/instances                              → distinct home instance domains
+GET    /admin/spaces  ?q=&page=&pageSize=                  → AdminSpaceListResponse (every space, read-only)
+GET    /admin/spaces/:id                                   → AdminSpaceDetail (members, roles, channels)
+GET    /admin/spaces/:id/channels/:channelId/messages ?before=&limit= → AdminSpaceMessagesResponse
 PATCH  /admin/users/:id/role         { isAdmin }           → AdminUser
 POST   /admin/users/:id/reset-password                     → { temporaryPassword }
 DELETE /admin/users/:id                                    → { success }

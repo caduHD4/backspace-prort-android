@@ -1511,6 +1511,74 @@ export interface AdminUserListResponse {
   pageSize: number;
 }
 
+/** Who owns, or belongs to, a space as the instance admin's read-only view shows them. */
+export interface AdminSpacePerson {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatar: string | null;
+  avatarColor: string | null;
+  homeInstance: string | null;
+  isDeleted: boolean;
+}
+
+/** One row of the instance admin's list of every space on the instance. */
+export interface AdminSpaceSummary {
+  id: string;
+  name: string;
+  icon: string | null;
+  avatarColor: string | null;
+  visibility: string;
+  memberCount: number;
+  channelCount: number;
+  createdAt: number;
+  owner: AdminSpacePerson | null;
+}
+
+export interface AdminSpaceListResponse {
+  spaces: AdminSpaceSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AdminSpaceMember extends AdminSpacePerson {
+  nickname: string | null;
+  joinedAt: number;
+  isOwner: boolean;
+  roles: { id: string; name: string; color: string | null }[];
+}
+
+export interface AdminSpaceChannel {
+  id: string;
+  name: string;
+  type: string;
+  topic: string | null;
+  position: number;
+  categoryId: string | null;
+}
+
+export interface AdminSpaceDetail {
+  space: AdminSpaceSummary & { description: string | null; banner: string | null };
+  members: AdminSpaceMember[];
+  channels: AdminSpaceChannel[];
+}
+
+export interface AdminSpaceMessage {
+  id: string;
+  type: 'user' | 'system';
+  content: string | null;
+  createdAt: number;
+  editedAt: number | null;
+  author: AdminSpacePerson | null;
+}
+
+export interface AdminSpaceMessagesResponse {
+  messages: AdminSpaceMessage[];
+  /** True when older messages remain before the first one returned. */
+  hasMore: boolean;
+}
+
 export interface AdminResetPasswordResponse {
   temporaryPassword: string;
 }

@@ -515,6 +515,45 @@
       "confirm": "Nutzer löschen"
     }
   },
+  "spaces": {
+    "title": "Alle Spaces",
+    "description": "Alle Spaces dieser Instanz. Du kannst in jeden hineinsehen, ohne beizutreten: Nichts hier verändert den Space, und du erscheinst nicht in seiner Mitgliederliste.",
+    "searchPlaceholder": "Spaces suchen…",
+    "loading": "Spaces werden geladen…",
+    "loadFailed": "Spaces konnten nicht geladen werden",
+    "empty": "Keine Spaces gefunden",
+    "owner": "Besitzer: {{name}}",
+    "ownerUnknown": "Unbekannter Besitzer",
+    "created": "Erstellt am {{date}}",
+    "stats": "{{members}} Mitglieder · {{channels}} Kanäle",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pagination": "Seite {{page}} von {{total}}",
+    "visibility": {
+      "public": "Öffentlich",
+      "request": "Beitritt auf Anfrage",
+      "private": "Privat"
+    },
+    "detail": {
+      "back": "Zurück zu allen Spaces",
+      "readOnly": "Nur Lesezugriff. Du bist kein Mitglied dieses Spaces, und nichts, was du hier tust, ist für seine Mitglieder sichtbar.",
+      "channels": "Kanäle",
+      "members": "Mitglieder",
+      "noChannels": "Dieser Space hat keine Kanäle",
+      "noMembers": "Dieser Space hat keine Mitglieder",
+      "selectChannel": "Wähle einen Textkanal, um die letzten Nachrichten zu lesen",
+      "voiceChannel": "Sprachkanal: Es gibt keinen Verlauf zum Lesen",
+      "loadOlder": "Ältere Nachrichten laden",
+      "loadingMessages": "Nachrichten werden geladen…",
+      "noMessages": "Keine Nachrichten in diesem Kanal",
+      "messagesFailed": "Nachrichten konnten nicht geladen werden",
+      "loadFailed": "Dieser Space konnte nicht geladen werden",
+      "edited": "(bearbeitet)",
+      "system": "Systemnachricht",
+      "ownerBadge": "Besitzer",
+      "joined": "Beigetreten am {{date}}"
+    }
+  },
   "mobile": {
     "title": "Instanz",
     "sections": {
@@ -525,6 +564,7 @@
       "storage": "Speicher",
       "updates": "Updates",
       "users": "Nutzer",
+      "spaces": "Alle Spaces",
       "telemetry": "Hallo sagen"
     }
   }

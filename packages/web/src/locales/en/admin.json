@@ -515,6 +515,45 @@
       "confirm": "Delete User"
     }
   },
+  "spaces": {
+    "title": "Spaces",
+    "description": "Every space on this instance. You can look inside any of them without joining: nothing here changes the space, and you do not appear in its member list.",
+    "searchPlaceholder": "Search spaces…",
+    "loading": "Loading spaces…",
+    "loadFailed": "Failed to load spaces",
+    "empty": "No spaces found",
+    "owner": "Owner: {{name}}",
+    "ownerUnknown": "Unknown owner",
+    "created": "Created {{date}}",
+    "stats": "{{members}} members · {{channels}} channels",
+    "previous": "Previous",
+    "next": "Next",
+    "pagination": "Page {{page}} of {{total}}",
+    "visibility": {
+      "public": "Public",
+      "request": "Request to join",
+      "private": "Private"
+    },
+    "detail": {
+      "back": "Back to all spaces",
+      "readOnly": "Read-only view. You are not a member of this space and nothing you do here is visible to its members.",
+      "channels": "Channels",
+      "members": "Members",
+      "noChannels": "This space has no channels",
+      "noMembers": "This space has no members",
+      "selectChannel": "Pick a text channel to read its recent messages",
+      "voiceChannel": "Voice channel: there is no history to read",
+      "loadOlder": "Load older messages",
+      "loadingMessages": "Loading messages…",
+      "noMessages": "No messages in this channel",
+      "messagesFailed": "Failed to load messages",
+      "loadFailed": "Failed to load this space",
+      "edited": "(edited)",
+      "system": "System",
+      "ownerBadge": "Owner",
+      "joined": "Joined {{date}}"
+    }
+  },
   "mobile": {
     "title": "Instance",
     "sections": {
@@ -525,6 +564,7 @@
       "storage": "Storage",
       "updates": "Updates",
       "users": "Users",
+      "spaces": "Spaces",
       "telemetry": "Say hi"
     }
   }
